@@ -4,7 +4,7 @@
 
 **Русский** · [English](README.en.md) · [中文](README.zh.md)
 
-**Мини-ПК Kvorix — быстрый домашний компьютер из ТВ-приставки Tanix TX3 (Amlogic S905X3)**
+**Мини-ПК Kvorix — домашний компьютер из ТВ-приставки Tanix TX3 (Amlogic S905X3)**
 
 Armbian (Debian 13 «trixie») · ядро ophub 6.12 · XFCE с оболочкой в стиле Windows 11 · свои Настройки и значки
 
