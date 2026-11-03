@@ -4,7 +4,7 @@
  Загрузка:  заводской U-Boot → s905_autoscript / emmc_autoscript (ophub) → u-boot.ext → uEnv.txt
             → ядро 6.12-ophub + uInitrd (Plymouth «kvorix», EDID монитора в initrd) → systemd
  Сеанс:     LightDM (автовход agent) → XFCE: xfwm4 + xfdesktop + оболочка rsaarm (панель, «Пуск»)
- Службы:    hdmi-autodetect, front-panel, kvorix-zapret, kvorix-vnc/novnc, сторожа и таймеры Kvorix
+ Службы:    hdmi-autodetect, front-panel, kvorix-vnc/novnc, сторожа и таймеры Kvorix
 ```
 
 ## Оболочка (`/usr/local/share/rsaarm`, Python 3 + GTK 3)
@@ -31,7 +31,6 @@
 | `hdmi-autodetect.service` | EDID по DDC раз в 3 с, режим монитора, перестройка панели/меню (сбрасывает им `nice`) |
 | `kvorix-mode-heal.timer` | возвращает видеорежим, если ядро его отклонило |
 | `front-panel.service` | индикатор 88:88 (FD6551), настройки `/var/lib/front-panel/config.json` |
-| `kvorix-zapret.service` | nfqws + nftables (`/etc/kvorix/zapret.nft`, `zapret-hosts.txt`) — обход DPI |
 | `kvorix-vnc.service` / `kvorix-novnc.service` | x11vnc на 127.0.0.1:5900 → websockify :6081 → nginx :6080 (секретный путь) |
 | `kvorix-icons.path` / `.service` | следит за каталогами программ и обновляет значки (`kvorix-make-icons`) |
 | `kvorix-firstboot.service` | первый запуск: ключи SSH, пароль VNC, токен noVNC, темы Доступа ИИ |
@@ -63,7 +62,7 @@
 
 | Путь | Что |
 |---|---|
-| `/etc/kvorix/` | секреты приставки (не в репозитории) и списки zapret |
+| `/etc/kvorix/` | секреты приставки (не в репозитории) |
 | `/var/lib/hdmi-autodetect/` | выбранные режимы для каждого монитора (ключ — хэш EDID) |
 | `/var/lib/front-panel/config.json` | настройки индикатора |
 | `~/.config/rsaarm/` | тема, закреплённые, эффекты оболочки |

@@ -40,8 +40,7 @@ sudo ./install.sh
 
 1. копирует [`rootfs/`](../rootfs) в `/` (скрипты, службы, Настройки, оболочка, темы, значки, заставка);
 2. ставит пакеты из `packages.txt` (флаг `--no-packages` — пропустить);
-3. ставит настройки пользователя по умолчанию; обход блокировок использует `nfqws` из
-   [bol-van/zapret](https://github.com/bol-van/zapret) (уже лежит в `rootfs/usr/local/sbin`);
+3. ставит настройки пользователя по умолчанию;
 4. включает службы Kvorix и запускает `kvorix-firstboot` (свои ключи, пароль VNC, токен noVNC);
 5. строит значки (`kvorix-make-icons`) и тему Plymouth `kvorix` (`update-initramfs`).
 

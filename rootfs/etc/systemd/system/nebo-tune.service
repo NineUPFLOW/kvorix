@@ -1,10 +1,10 @@
 [Unit]
-Description=NEBO mini-PC performance tune
-After=multi-user.target
+Description=Kvorix: быстрый отклик CPU (ondemand: раньше поднимать частоту, дольше держать)
+After=sysinit.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c "for c in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo ondemand > $c; done"
+ExecStart=/bin/sh -c "for c in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo ondemand > $c; done; echo 40 > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold; echo 20 > /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor"
 RemainAfterExit=yes
 
 [Install]

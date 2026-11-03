@@ -31,7 +31,7 @@ Kvorix 把便宜的 **Tanix TX3** 安卓盒子变成安静的家用电脑：浏�
   并提供适配电视过扫描的模式。
 - **前面板 88:88 时钟**（FD6551）：时间、日期、温度、负载。
 - **扫码投屏到手机**（noVNC，仅限家庭网络）。
-- **zapret 防 DPI** 与 **Tailscale**。
+- **DNS over TLS** 与 **Tailscale**（绕过 DPI 取决于运营商，不包含在内）。
 - **性能：**CPU 最高 2.1 GHz、zram、Panfrost GPU、Chromium 硬件加速绘制。
 - **自我修复：**网络与服务看门狗、Tailscale 自动恢复、`kvorix-health-check`。
 

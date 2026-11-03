@@ -13,7 +13,6 @@ Kvorix — © 2026 NineUPFLOW, GPL-3.0 (файл [LICENSE](LICENSE)): всё в 
 | Debian 13 «trixie» (пакеты из `packages.txt`) | https://www.debian.org | разные свободные, см. `/usr/share/doc/*/copyright` |
 | XFCE (xfwm4, xfdesktop, Thunar …) | https://xfce.org | GPL-2.0 / LGPL |
 | Papirus (символы для значков Kvorix) | https://github.com/PapirusDevelopmentTeam/papirus-icon-theme | GPL-3.0 |
-| zapret / nfqws | https://github.com/bol-van/zapret | MIT |
 | noVNC, websockify | https://github.com/novnc | MPL-2.0 / LGPL-3.0 |
 | x11vnc | https://github.com/LibVNC/x11vnc | GPL-2.0 |
 | upterm (Доступ ИИ) | https://github.com/owenthereal/upterm | Apache-2.0 |

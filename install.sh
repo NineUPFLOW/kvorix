@@ -38,14 +38,17 @@ rsync -a --ignore-existing rootfs/etc/skel/ /home/agent/
 chown -R agent:agent /home/agent
 
 step "Ссылки"
+# IPv4 первым: у многих роутеров IPv6 без выхода в интернет
+grep -q "^precedence ::ffff:0:0/96  100" /etc/gai.conf 2>/dev/null || echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
 ln -sf /usr/share/fontconfig/conf.avail/10-hinting-slight.conf /etc/fonts/conf.d/
 ln -sf /usr/share/fontconfig/conf.avail/70-no-bitmaps-except-emoji.conf /etc/fonts/conf.d/
 ln -sfn ../../Kvorix-Icons/scalable/apps /usr/share/icons/Kvorix-Icons-Dark/scalable/apps
 
 step "Службы"
 systemctl daemon-reload
+systemctl restart systemd-resolved
 # как на эталонной приставке; Доступ ИИ (agent-*) не включается — его включают в Настройки → Доступ ИИ
-for u in hdmi-autodetect front-panel kvorix-zapret kvorix-vnc kvorix-novnc kvorix-icons.path bt-agent bt-beacon \
+for u in hdmi-autodetect front-panel kvorix-vnc kvorix-novnc kvorix-icons.path bt-agent bt-beacon \
          nebo-tune box-watchdog.timer box-backup.timer kvorix-config-snapshot.timer kvorix-mode-heal.timer kvorix-firstboot; do
     systemctl enable "$u" >/dev/null 2>&1 || echo "  пропущено: $u"
 done

@@ -31,7 +31,7 @@ screen sharing to a phone and DPI bypass — all usable without a terminal.
   native mode, HDMI audio and an overscan-fit mode for TVs.
 - **Front panel clock 88:88** (FD6551): time, date, temperature, load.
 - **Screen sharing to a phone** by QR code (noVNC, home network only).
-- **DPI bypass** (zapret) and **Tailscale**.
+- **DNS over TLS** and **Tailscale** (DPI bypass is ISP-specific and not included).
 - **Speed:** CPU up to 2.1 GHz, zram, Panfrost GPU, GPU-accelerated Chromium.
 - **Self-healing:** network/service watchdog, Tailscale recovery, `kvorix-health-check`.
 

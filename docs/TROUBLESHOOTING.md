@@ -7,7 +7,7 @@
 | Нет звука | Настройки → Звук → вывод HDMI; `pactl list short sinks` |
 | Wi-Fi пропал | Не сканируйте сети в цикле (BCM4330 может зависнуть). Перезагрузите приставку |
 | Tailscale «офлайн» | Сторож перезапустит сам за ~2–3 мин; вручную: `sudo systemctl restart tailscaled` |
-| Сайт не открывается | Добавьте домен в `/etc/kvorix/zapret-hosts.txt`, затем `sudo systemctl restart kvorix-zapret` |
+| Сайт не открывается | Проверьте DNS: `resolvectl query сайт`. Если сайт заблокирован провайдером — нужен свой обход (zapret) или VPN |
 | Тормозит | `ps -L -u agent -o ni=,comm= \| sort \| uniq -c` — у панели/браузера должен быть приоритет 0. `sudo kvorix-health-check` |
 | Значок программы старый | `sudo kvorix-make-icons` (обычно не нужно — запускается сам) |
 | Настройки открываются со старым видом | `kvorix-restart-settings` |

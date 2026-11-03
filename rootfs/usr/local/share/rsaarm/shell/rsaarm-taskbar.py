@@ -484,6 +484,15 @@ class Taskbar(Gtk.Window):
         right = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
         root.pack_end(right, False, False, 0)
 
+        # экранная клавиатура — открыть мышью или пультом, без настоящей клавиатуры (как в Windows)
+        self.osk_btn = Gtk.Button()
+        self.osk_btn.add(Gtk.Image.new_from_icon_name("input-keyboard-symbolic", Gtk.IconSize.MENU))
+        self.osk_btn.set_size_request(34, -1)
+        self.osk_btn.get_style_context().add_class("tb-btn")
+        self.osk_btn.set_tooltip_text("Экранная клавиатура (Win+Ctrl+O)")
+        self.osk_btn.connect("clicked", lambda *_: launch("kvorix-osk"))
+        right.pack_start(self.osk_btn, False, False, 0)
+
         self.lang_btn = Gtk.Button()
         self.lang_lbl = Gtk.Label(label="ENG")
         self.lang_btn.add(self.lang_lbl)

@@ -12,7 +12,7 @@ shot() { scrot -q 70 -o $SHOTS/$1.jpg; }
 
 echo "===== 1. Службы основного бокса"
 for s in front-panel hdmi-autodetect agent-slot@0 agent-slot@1 agent-cmd \
-         NetworkManager lightdm bluetooth ssh chrony kvorix-vnc nginx kvorix-zapret tailscaled; do
+         NetworkManager lightdm bluetooth ssh chrony kvorix-vnc nginx tailscaled; do
     chk "служба $s" "systemctl is-active --quiet $s"
 done
 for t in box-watchdog box-backup; do chk "таймер $t" "systemctl is-active --quiet $t.timer"; done
@@ -197,7 +197,8 @@ echo "===== 13. Доступ к экрану (локальный) и сеть"
 chk "tailscale online (IP выдан)" "[ -n \"$(tailscale ip -4 2>/dev/null)\" ]"
 chk "tailscale узел Self.Online=true" "tailscale status --json 2>/dev/null | python3 -c \"import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('Self',{}).get('Online') else 1)\""
 chk "funnel отключён (нет публичного доступа)" "! tailscale funnel status 2>&1 | grep -q 'Funnel on'"
-chk "zapret (обход DPI) активен" "systemctl is-active --quiet kvorix-zapret"
+# обход DPI — свой у каждого провайдера, проверяем только если настроен
+systemctl cat kvorix-zapret >/dev/null 2>&1 && chk "zapret (обход DPI) активен" "systemctl is-active --quiet kvorix-zapret"
 TOK=$(sudo -n cat /etc/kvorix/novnc.token 2>/dev/null)
 chk "VNC :5900 слушает только 127.0.0.1" "ss -ltn | grep -q '127.0.0.1:5900' && ! ss -ltn | grep -qE '(0\.0\.0\.0|\*|:::):5900'"
 chk "токен экрана: 48 hex-символов, права 600" "[ ${#TOK} = 48 ] && [ \"$(sudo -n stat -c%a /etc/kvorix/novnc.token 2>/dev/null)\" = 600 ]"
