@@ -227,15 +227,7 @@ VNCCHK
 chk "страница «Устройства»: QR генерируется" "[ -s /tmp/kvorix-qr-local.png ]"
 chk "noVNC E2E: WS+RFB+auth через /<токен>/websockify → SecurityResult 0" "[ -x /usr/local/share/kvorix/tests/e2e-vnc-test.py ] && python3 /usr/local/share/kvorix/tests/e2e-vnc-test.py 2>/dev/null | grep -q E2E-VNC-OK"
 chk "страницы «Устройства»/«Время и язык» объявлены" "grep -q 'def page_devices' /usr/local/share/armbian-gui/center.py && grep -q 'def page_timelang' /usr/local/share/armbian-gui/center.py"
-pkill -f "tail -n 40 -F /tmp/live[.]log" 2>/dev/null; DISPLAY=:0 wmctrl -c "Журнал агента" 2>/dev/null; sleep 1
-python3 -c 'import subprocess; subprocess.run(["live", "echo kvorix-live-test"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)'
 sleep 2
-grep -q "kvorix-live-test" /tmp/live.log && ok "журнал агента: запись в live.log (окно не открываем)" || bad "журнал агента: записи нет"
-chk "журнал агента: сторож автозакрытия" "[ -s /tmp/.live-journal-close.pid ]"
-DISPLAY=:0 wmctrl -l 2>/dev/null | grep -q "Журнал агента" && bad "журнал агента: окно открылось само" || ok "журнал агента: окно само не открывается"
-setsid env KVORIX_JOURNAL_BUTTON=1 /usr/local/bin/live --show >/dev/null 2>&1 & sleep 3
-win 'Журнал агента' 30 && ok "журнал агента: окно по KVORIX_JOURNAL_BUTTON=1 live --show (кнопка Журнал)" || bad "журнал агента: --show не открыл окно"
-DISPLAY=:0 wmctrl -c "Журнал агента" 2>/dev/null; pkill -f "tail -n 40 -F /tmp/live[.]log" 2>/dev/null; true
 
 echo; echo "===== ИТОГ: OK $PASS, ОШИБОК $FAIL"; [ $FAIL -gt 0 ] && echo -e "Ошибки:$FAILS"
 ls $SHOTS

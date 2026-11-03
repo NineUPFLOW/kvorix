@@ -2039,8 +2039,6 @@ class Center(Gtk.Window):
                     box.pack_start(ui._lbl(title, "tile-title"), False, False, 0)
                     box.pack_start(ui._lbl("Адрес в интернете: %s — %s" % (addr, where), "muted"), False, False, 0)
                     box.pack_start(ui._lbl("Ключ: «%s» · %s · %s" % (ident, prog, slot), "muted"), False, False, 0)
-                    stream = "live-a" if "agent-access" in ident else "live"
-                    box.pack_start(ui.button("Журнал", lambda s=stream: _spawn(["setsid", "env", "KVORIX_JOURNAL_BUTTON=1", "/usr/local/bin/" + s, "--show"]), "ghost", "text-x-generic"), False, False, 0)
                 else:
                     box.pack_start(ui._lbl("Человек — пользователь «%s»" % ident, "tile-title"), False, False, 0)
                     box.pack_start(ui._lbl("Откуда: %s (адрес в вашей сети)" % addr, "muted"), False, False, 0)
