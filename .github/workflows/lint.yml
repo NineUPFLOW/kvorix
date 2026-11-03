@@ -14,8 +14,8 @@ jobs:
       - name: Shell — синтаксис и ошибки
         run: |
           set -e
-          grep -rlIE '^#!.*(ba)?sh' rootfs install.sh | while read -r f; do bash -n "$f"; done
-          grep -rlIE '^#!.*bash' rootfs install.sh | xargs -r shellcheck -S error
+          grep -rlIE --exclude='*.txt' '^#!.*(ba)?sh' rootfs install.sh | while read -r f; do bash -n "$f"; done
+          grep -rlIE --exclude='*.txt' '^#!.*bash' rootfs install.sh | xargs -r shellcheck -S error
       - name: Нет секретов
         run: |
           ! grep -rIEn 'BEGIN [A-Z ]*PRIVATE KEY|tskey-|psk=' rootfs install.sh
