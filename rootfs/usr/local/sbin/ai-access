@@ -55,5 +55,21 @@ for ts, u, r, k, s, n in out[-int(sys.argv[1]):]:
   kick) systemctl restart agent-slot@0 agent-slot@1 ;;
   hello)
     printf '%s\t%s\t%s\t%s\n' "$(date '+%F %T')" "$2" "$3" "$4" >> /var/lib/kvorix/agent-hello ;;
+  key|newkey)
+    # ключ, который приставка выдаёт ИИ-агенту (открытая часть — в списке гостей)
+    K=/etc/agent-access/agent_ed25519 AK=/home/agent/.ssh/authorized_keys
+    if [ "$1" = newkey ] && [ -f "$K.pub" ]; then
+      for f in "$KEYS" "$AK"; do grep -vxF "$(cat "$K.pub")" "$f" > "$f.tmp"; cat "$f.tmp" > "$f"; rm -f "$f.tmp"; done
+      rm -f "$K" "$K.pub"
+    fi
+    if [ ! -f "$K" ]; then
+      ssh-keygen -q -t ed25519 -N "" -C "агент Kvorix" -f "$K"
+      # upterm читает список ключей при старте сессии — перезапускаем слоты, чтобы новый ключ пускал
+      systemctl --no-block restart agent-slot@0 agent-slot@1 2>/dev/null
+    fi
+    # ключ нужен и upterm (вход в сессию), и sshd приставки (туннель на 127.0.0.1:22)
+    for f in "$KEYS" "$AK"; do grep -qxF "$(cat "$K.pub")" "$f" 2>/dev/null || cat "$K.pub" >> "$f"; done
+    [ "$1" = key ] && cat "$K" ;;
+  topic) sed -n "s/^TOPIC=//p" /etc/kvorix/ai.conf ;;
   *)   systemctl is-active agent-slot@0 agent-slot@1 ;;
 esac

@@ -2009,6 +2009,78 @@ class Center(Gtk.Window):
         c.add(ui.row("Сейчас", status))
         show()
 
+        # подключение агента: ключ, набор файлов и готовый текст — коротко, с кнопками и QR
+        ck = p.card("Подключить ИИ-агента", icon="network-server")
+        ck.add(ui._lbl("1 — включите разрешение   2 — отдайте агенту ключ   3 — отправьте ему текст", "muted", wrap=True))
+        AI = "/usr/local/share/kvorix/ai"
+
+        def ai_out(*a):
+            return C.out(["sudo", "-n", "/usr/local/sbin/ai-access"] + list(a))
+
+        def tpl(template):
+            try:
+                return open(AI + "/" + template, encoding="utf-8").read().replace("@TOPIC@", ai_out("topic").strip())
+            except OSError:
+                return ""
+
+        def qr_img(text, path):
+            subprocess.run(["qrencode", "-s", "2", "-m", "1", "-o", path, text], capture_output=True)
+            return Gtk.Image.new_from_file(path)
+
+        def copy(text, what):
+            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
+            C.notify("Доступ ИИ", what + " — скопировано")
+
+        def save_kit():
+            d = os.path.expanduser("~/Загрузки/kvorix-ai")
+            os.makedirs(d, exist_ok=True)
+            for name, text, mode in (("id_ed25519", ai_out("key"), 0o600), ("connect.sh", tpl("connect.sh"), 0o755),
+                                     ("ДЛЯ-ИИ.txt", tpl("prompt.txt"), 0o644)):
+                path = os.path.join(d, name)
+                with open(path, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(text)
+                os.chmod(path, mode)
+            _spawn(["thunar", d])
+            C.notify("Доступ ИИ", "Набор в Загрузки/kvorix-ai — перенесите папку на компьютер агента")
+
+        key_qr = Gtk.Box()
+
+        def show_key_qr():
+            for ch in key_qr.get_children():
+                key_qr.remove(ch)
+            key_qr.pack_start(qr_img(ai_out("key"), "/tmp/kvorix-ai-key.png"), False, False, 0)
+            key_qr.show_all()
+
+        def new_key():
+            ai_out("newkey")
+            C.notify("Доступ ИИ", "Создан новый ключ — старый больше не пускает")
+            if key_qr.get_children():
+                show_key_qr()
+
+        kb = Gtk.Box(spacing=6)
+        for t, cb, ic in (("Показать QR", show_key_qr, "view-reveal-symbolic"),
+                          ("Скопировать", lambda: copy(ai_out("key"), "Ключ"), "edit-copy"),
+                          ("Сохранить набор", save_kit, "document-save"),
+                          ("Новый ключ", new_key, "view-refresh")):
+            kb.pack_start(ui.button(t, cb, "ghost", ic), False, False, 0)
+        ck.add(ui.row("Ключ для агента", None, sub="Набор: ключ, connect.sh и текст — в Загрузки/kvorix-ai"))
+        ck.add(kb)
+        ck.add(key_qr)
+
+        txt = tpl("prompt.txt")
+        pb = Gtk.Box(spacing=12)
+        pl = ui._lbl(txt, "tile-path", wrap=True)
+        pl.set_selectable(True)
+        pl.set_xalign(0)
+        pl.set_valign(Gtk.Align.START)
+        pb.pack_start(pl, True, True, 0)
+        # маленький QR — только главное; весь текст — кнопкой «Скопировать»
+        short = "Kvorix: тема ntfy %s; вход ssh -i id_ed25519 <код>:uptermd.upterm.dev@uptermd.upterm.dev; пользователь agent" %             ai_out("topic").strip()
+        pb.pack_start(qr_img(short, "/tmp/kvorix-ai-prompt.png"), False, False, 0)
+        ck.add(ui.row("Что написать агенту", ui.button("Скопировать", lambda: copy(tpl("prompt.txt"), "Текст для агента"),
+                                                      "btn", "edit-copy")))
+        ck.add(pb)
+
         cw = p.card("Кто подключён прямо сейчас", icon="system-users")
         head = ui._lbl("", "dash-big")
         cw.add(head)
@@ -2100,15 +2172,10 @@ class Center(Gtk.Window):
         poll_hist()
 
         c2 = p.card("Как это работает", icon="dialog-information")
-        for s in ("Бокс сам открывает соединение с сервером upterm.dev — роутер настраивать не нужно, работает из любой сети.",
-                  "Войти может только агент, у которого есть секретный ключ (файл id_ed25519 из папки agent-access).",
-                  "Агент получает командную строку бокса с правами администратора.",
-                  "Всё, что делает агент, видно в окне терминала на экране.",
-                  "Журнал входов хранится в /var/lib/kvorix/access.log: время, пользователь, адрес, ИИ или человек.",
-                  "Адрес ИИ-агента — настоящий адрес его компьютера в интернете, его сообщает сервер upterm.",
-                  "Если агент работает на вашем же компьютере, его адрес совпадает с адресом вашего дома — это нормально."):
-            l = ui._lbl("• " + s, None, wrap=True)
-            c2.add(l)
+        for t in ("Приставка сама соединяется с upterm.dev — роутер настраивать не нужно.",
+                  "Войти может только агент с ключом; «Новый ключ» отключает старый.",
+                  "Входы записываются в /var/lib/kvorix/access.log."):
+            c2.add(ui._lbl("• " + t, None, wrap=True))
         return p
 
     def page_devices(self):
