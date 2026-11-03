@@ -46,7 +46,7 @@
   Работает только в домашней сети.
 - **DNS через TLS** (systemd-resolved: Cloudflare/Google) — провайдер не подменяет адреса сайтов.
 - **Обход блокировок** в Kvorix не входит: он зависит от провайдера. Настройте сами по [bol-van/zapret](https://github.com/bol-van/zapret).
-- Chromium без QUIC, IPv4 в приоритете (`/etc/gai.conf`) — если у роутера IPv6 без интернета, сайты не ждут.
+- Chromium без QUIC (флаг `--disable-quic`, без политик — нет надписи «управляется организацией»), IPv4 в приоритете (`/etc/gai.conf`) — если у роутера IPv6 без интернета, сайты не ждут.
 - **Tailscale** — доступ к приставке из своей сети Tailscale; сторож перезапускает его, если связь «замёрзла».
 - Установлены, но выключены (включаются вручную `sudo systemctl enable --now …`): общая папка Samba (`smbd`, `/srv/share`), DLNA (`minidlna`), AirPlay-звук (`shairport-sync`).
 

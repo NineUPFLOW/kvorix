@@ -1,2 +1,3 @@
 # Kvorix: видеокарта Mali-G31 (Panfrost) для отрисовки страниц; меньше процессов — меньше памяти
-export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --renderer-process-limit=3"
+# --disable-quic: QUIC (UDP) у провайдеров часто режется — сразу TCP, без ожидания
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --renderer-process-limit=3 --disable-quic"
