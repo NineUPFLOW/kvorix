@@ -1,18 +1,11 @@
-Подключись к моему мини-ПК Kvorix (Linux, Debian 13) и помоги мне с ним. Выполни это в bash:
-
-mkdir -p ~/.kvorix && cd ~/.kvorix && cat > key <<'KEY'
+# Kvorix: bash; затем ~/.kvorix/kv 'команда' (agent, sudo без пароля); файл: ~/.kvorix/kv 'cat >/tmp/f' <f
+mkdir -p ~/.kvorix&&cd ~/.kvorix&&cat>key<<'K'
 @KEY@
-KEY
-cat > kv <<'S'
+K
+cat>kv<<'S'
 #!/bin/bash
-O="-i $HOME/.kvorix/key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR"
-ssh -p 2401 $O agent@127.0.0.1 true 2>/dev/null || for c in $(curl -s "https://ntfy.sh/@TOPIC@/json?poll=1&since=12h" | grep -o 'SESSION [A-Za-z0-9]*' | cut -d' ' -f2 | tac); do
-  ssh -fN -o ExitOnForwardFailure=yes -L 2401:127.0.0.1:22 $O $c:uptermd.upterm.dev@uptermd.upterm.dev && ssh -p 2401 $O agent@127.0.0.1 true 2>/dev/null && break
-done
-exec ssh -p 2401 $O agent@127.0.0.1 "$@"
+O="-i $HOME/.kvorix/key -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -oBatchMode=yes -oLogLevel=ERROR -oConnectTimeout=15"
+for c in $(for h in ntfy.sh ntfy.hostux.net;do curl -s -m10 "https://$h/@TOPIC@/json?poll=1&since=12h";done|grep -o 'SESSION [A-Za-z0-9]*'|cut -d' ' -f2|tac|awk '!s[$0]++');do
+ssh $O -oProxyCommand="ssh $O -W 127.0.0.1:22 $c:uptermd.upterm.dev@uptermd.upterm.dev" agent@127.0.0.1 "$@";r=$?;[ $r -ne 255 ]&&exit $r;done;exit 255
 S
-chmod 600 key; chmod +x kv; ~/.kvorix/kv hostname
-
-Дальше любая команда: ~/.kvorix/kv 'команда' (пользователь agent, sudo без пароля).
-Файл: scp -P 2401 -i ~/.kvorix/key файл agent@127.0.0.1:/tmp/
-Правила: перед изменением делай копию файла; без моего согласия не перезагружай, не трогай загрузчик и сеть, ничего не удаляй; отвечай коротко.
+chmod 600 key;chmod +x kv;./kv hostname

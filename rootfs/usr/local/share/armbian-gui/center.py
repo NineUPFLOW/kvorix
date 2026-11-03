@@ -275,6 +275,8 @@ EXTRA_CSS = """
 .nav image { color: alpha(@text, 0.75); }
 .nav row:selected image { color: @accent; }
 .card-head image { color: @accent; }
+.ai-qr-big { background-color: #ffffff; }
+.ai-qr-hint { color: #5f6368; font-size: 13px; }
 .ai-step { min-width: 28px; min-height: 28px; border-radius: 14px; background-color: @accent; color: #ffffff; font-weight: 700; }
 .tile-ic { min-width: 36px; min-height: 36px; border-radius: 10px; color: #ffffff; margin-bottom: 4px; }
 .tile-ic-network { background-color: #2f7cf6; }
@@ -2047,13 +2049,13 @@ class Center(Gtk.Window):
                 row_.pack_end(widget, False, False, 0)
             return row_
 
-        ck.add(ui._lbl("Агенту нужно только одно сообщение: в нём ключ и команды для входа. Папки и файлы не нужны.",
+        ck.add(ui._lbl("В сообщении только ключ и команды входа. Свою задачу допишите агенту сами.",
                        "muted", wrap=True))
         ck.add(step(1, "Разрешите подключение", "Переключатель «Разрешить ИИ-агентам подключаться» выше"))
         cp = ui.button("Скопировать сообщение", copy_msg, "btn", "edit-copy")
         cp.get_style_context().add_class("suggested-action")
         ck.add(step(2, "Скопируйте сообщение или отсканируйте QR", "QR откройте только когда рядом никого — в нём ключ", cp))
-        ck.add(step(3, "Вставьте его в чат с ИИ-агентом", "Агент сам создаст у себя ключ, подключится и ответит"))
+        ck.add(step(3, "Вставьте его агенту вместе со своей задачей", "Агент выполнит команды и подключится сам"))
 
         qr_tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         qr_tile.get_style_context().add_class("tile")
@@ -2061,6 +2063,37 @@ class Center(Gtk.Window):
         qr_slot = Gtk.Box()
         qr_tile.pack_start(qr_slot, False, False, 0)
         qr_tile.set_no_show_all(True)
+
+        def big_qr(*_):
+            # крупно и поверх всего — удобно сканировать с телефона издалека
+            png = "/tmp/kvorix-ai-big.png"
+            subprocess.run(["qrencode", "-s", "1", "-m", "4", "-l", "L", "-o", png, message()], capture_output=True)
+            pb = GdkPixbuf.Pixbuf.new_from_file(png)
+            os.remove(png)
+            scr = Gdk.Screen.get_default()
+            n = pb.get_width()
+            side = int(min(scr.get_width(), scr.get_height()) * 0.94) // n * n
+            pb = pb.scale_simple(side, side, GdkPixbuf.InterpType.NEAREST)
+            w = Gtk.Window()
+            w.set_decorated(False)
+            w.set_keep_above(True)
+            w.get_style_context().add_class("ai-qr-big")
+            ev = Gtk.EventBox()
+            ev.get_style_context().add_class("ai-qr-big")
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            box.set_halign(Gtk.Align.CENTER)
+            box.set_valign(Gtk.Align.CENTER)
+            box.pack_start(Gtk.Image.new_from_pixbuf(pb), False, False, 0)
+            hint = Gtk.Label(label="Нажмите в любом месте или любую клавишу, чтобы закрыть")
+            hint.get_style_context().add_class("ai-qr-hint")
+            box.pack_start(hint, False, False, 0)
+            ev.add(box)
+            ev.connect("button-press-event", lambda *_a: w.destroy())
+            w.connect("key-press-event", lambda *_a: w.destroy())
+            w.add(ev)
+            w.show_all()
+            w.fullscreen()
+            w.present()
 
         def toggle_qr():
             if qr_tile.get_visible():
@@ -2071,7 +2104,11 @@ class Center(Gtk.Window):
                 qr_slot.remove(ch)
             png = "/tmp/kvorix-ai-msg.png"
             subprocess.run(["qrencode", "-s", "3", "-m", "2", "-l", "L", "-o", png, message()], capture_output=True)
-            qr_slot.pack_start(Gtk.Image.new_from_file(png), False, False, 0)
+            ev = Gtk.EventBox()
+            ev.add(Gtk.Image.new_from_file(png))
+            ev.set_tooltip_text("Нажмите — QR на весь экран")
+            ev.connect("button-press-event", big_qr)
+            qr_slot.pack_start(ev, False, False, 0)
             qr_slot.show_all()
             qr_tile.show()
             qr_btn.set_label("Скрыть QR")
