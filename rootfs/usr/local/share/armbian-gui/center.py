@@ -2009,10 +2009,10 @@ class Center(Gtk.Window):
         c.add(ui.row("Сейчас", status))
         show()
 
-        # подключение агента: ключ, набор файлов и готовый текст — коротко, с кнопками и QR
+        # подключение агента: три шага по порядку; ключ и QR — под «Ещё»
         ck = p.card("Подключить ИИ-агента", icon="network-server")
-        ck.add(ui._lbl("1 — включите разрешение   2 — отдайте агенту ключ   3 — отправьте ему текст", "muted", wrap=True))
         AI = "/usr/local/share/kvorix/ai"
+        KIT = os.path.expanduser("~/Загрузки/kvorix-ai")
 
         def ai_out(*a):
             return C.out(["sudo", "-n", "/usr/local/sbin/ai-access"] + list(a))
@@ -2024,25 +2024,41 @@ class Center(Gtk.Window):
                 return ""
 
         def qr_img(text, path):
-            subprocess.run(["qrencode", "-s", "2", "-m", "1", "-o", path, text], capture_output=True)
+            subprocess.run(["qrencode", "-s", "3", "-m", "1", "-o", path, text], capture_output=True)
             return Gtk.Image.new_from_file(path)
 
         def copy(text, what):
             Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
-            C.notify("Доступ ИИ", what + " — скопировано")
+            C.notify("Доступ ИИ", what + " скопирован в буфер обмена")
 
         def save_kit():
-            d = os.path.expanduser("~/Загрузки/kvorix-ai")
-            os.makedirs(d, exist_ok=True)
+            os.makedirs(KIT, exist_ok=True)
             for name, text, mode in (("id_ed25519", ai_out("key"), 0o600), ("connect.sh", tpl("connect.sh"), 0o755),
                                      ("ДЛЯ-ИИ.txt", tpl("prompt.txt"), 0o644)):
-                path = os.path.join(d, name)
+                path = os.path.join(KIT, name)
                 with open(path, "w", encoding="utf-8", newline="\n") as f:
                     f.write(text)
                 os.chmod(path, mode)
-            _spawn(["thunar", d])
-            C.notify("Доступ ИИ", "Набор в Загрузки/kvorix-ai — перенесите папку на компьютер агента")
+            _spawn(["thunar", KIT])
 
+        ck.add(ui.row("1. Сохраните набор для агента", ui.button("Сохранить", save_kit, "btn", "document-save"),
+                      sub="Ключ и скрипт подключения появятся в папке «Загрузки → kvorix-ai»"))
+        ck.add(ui.row("2. Перенесите папку kvorix-ai на компьютер, где работает ИИ",
+                      sub="Флешкой, по сети или через облако — эта папка и есть пропуск для агента"))
+        ck.add(ui.row("3. Отправьте агенту это сообщение",
+                      ui.button("Скопировать текст", lambda: copy(tpl("prompt.txt"), "Текст"), "ghost", "edit-copy"),
+                      sub="Вставьте его в чат с ИИ — он сам подключится"))
+        msg = ui._lbl(tpl("prompt.txt").strip(), "muted", wrap=True)
+        msg.set_selectable(True)
+        msg.set_xalign(0)
+        mb = Gtk.Box()
+        mb.get_style_context().add_class("tile")
+        mb.pack_start(msg, True, True, 0)
+        ck.add(mb)
+
+        more = Gtk.Expander(label="Ещё: ключ отдельно, QR, замена ключа")
+        mbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        mbox.set_margin_top(6)
         key_qr = Gtk.Box()
 
         def show_key_qr():
@@ -2052,34 +2068,22 @@ class Center(Gtk.Window):
             key_qr.show_all()
 
         def new_key():
+            if not ui.dialog(self, "Заменить ключ?", "Старый ключ перестанет работать, подключённые агенты отключатся. "
+                             "Потом сохраните набор заново.", ok="Заменить", cancel="Отмена"):
+                return
             ai_out("newkey")
-            C.notify("Доступ ИИ", "Создан новый ключ — старый больше не пускает")
+            C.notify("Доступ ИИ", "Ключ заменён — сохраните набор заново")
             if key_qr.get_children():
                 show_key_qr()
 
         kb = Gtk.Box(spacing=6)
-        for t, cb, ic in (("Показать QR", show_key_qr, "view-reveal-symbolic"),
-                          ("Скопировать", lambda: copy(ai_out("key"), "Ключ"), "edit-copy"),
-                          ("Сохранить набор", save_kit, "document-save"),
-                          ("Новый ключ", new_key, "view-refresh")):
-            kb.pack_start(ui.button(t, cb, "ghost", ic), False, False, 0)
-        ck.add(ui.row("Ключ для агента", None, sub="Набор: ключ, connect.sh и текст — в Загрузки/kvorix-ai"))
-        ck.add(kb)
-        ck.add(key_qr)
-
-        txt = tpl("prompt.txt")
-        pb = Gtk.Box(spacing=12)
-        pl = ui._lbl(txt, "tile-path", wrap=True)
-        pl.set_selectable(True)
-        pl.set_xalign(0)
-        pl.set_valign(Gtk.Align.START)
-        pb.pack_start(pl, True, True, 0)
-        # маленький QR — только главное; весь текст — кнопкой «Скопировать»
-        short = "Kvorix: тема ntfy %s; вход ssh -i id_ed25519 <код>:uptermd.upterm.dev@uptermd.upterm.dev; пользователь agent" %             ai_out("topic").strip()
-        pb.pack_start(qr_img(short, "/tmp/kvorix-ai-prompt.png"), False, False, 0)
-        ck.add(ui.row("Что написать агенту", ui.button("Скопировать", lambda: copy(tpl("prompt.txt"), "Текст для агента"),
-                                                      "btn", "edit-copy")))
-        ck.add(pb)
+        kb.pack_start(ui.button("Показать ключ как QR", show_key_qr, "ghost", "view-reveal-symbolic"), False, False, 0)
+        kb.pack_start(ui.button("Скопировать ключ", lambda: copy(ai_out("key"), "Ключ"), "ghost", "edit-copy"), False, False, 0)
+        kb.pack_start(ui.button("Заменить ключ", new_key, "ghost", "view-refresh"), False, False, 0)
+        mbox.pack_start(kb, False, False, 0)
+        mbox.pack_start(key_qr, False, False, 0)
+        more.add(mbox)
+        ck.add(more)
 
         cw = p.card("Кто подключён прямо сейчас", icon="system-users")
         head = ui._lbl("", "dash-big")
