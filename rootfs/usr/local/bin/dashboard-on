@@ -1,0 +1,5 @@
+#!/bin/bash
+sudo systemctl stop tty-console 2>/dev/null
+sudo systemctl start tv-panel 2>/dev/null
+sudo chvt 1 2>/dev/null
+echo "Табло включено. Вернуть консоль: dashboard-off"

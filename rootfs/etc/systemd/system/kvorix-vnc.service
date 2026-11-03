@@ -1,0 +1,9 @@
+[Unit]
+Description=Kvorix: экран для телефона (VNC :5900)
+After=lightdm.service
+[Service]
+ExecStart=/usr/bin/x11vnc -display :0 -auth /var/run/lightdm/root/:0 -rfbauth /etc/kvorix/vnc.pass -forever -shared  -quiet -rfbport 5900 -localhost
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=graphical.target

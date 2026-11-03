@@ -1,0 +1,44 @@
+@import url("resource:///org/gnome/arc-theme/gtk-main-dark.css");
+/* Armbian Fluent (тёмный режим) — тема GTK3 поверх Arc-Dark; цвет акцента задаёт armbian-personalize */
+
+window.background { background-color: #202228; color: #e8eaf2; }
+headerbar, .titlebar {
+    background: #202228; border-bottom: 1px solid rgba(255,255,255,0.08);
+    box-shadow: none; min-height: 40px; color: #e8eaf2;
+}
+button { border-radius: 8px; padding: 5px 12px; min-height: 22px; transition: background 120ms ease; }
+entry {
+    border-radius: 8px; min-height: 30px; padding: 0 10px; background: #2b2e36; color: #e8eaf2;
+    border: 1px solid rgba(255,255,255,0.10); border-bottom: 2px solid rgba(255,255,255,0.22);
+}
+entry:focus { box-shadow: none; }
+check { border-radius: 5px; }
+radio { border-radius: 50%; }
+switch { border-radius: 999px; }
+switch slider { border-radius: 50%; }
+scale trough, progressbar trough { border-radius: 3px; }
+scale slider { border-radius: 50%; background: #e8eaf2; border: 2px solid; }
+.view, treeview, iconview, textview text { background-color: #23262e; color: #e8eaf2; }
+menu, .menu, .context-menu {
+    border-radius: 10px; padding: 5px; background: #2b2e36; border: 1px solid rgba(255,255,255,0.10);
+}
+menu menuitem, .menu menuitem { border-radius: 6px; padding: 6px 12px; min-height: 18px; }
+menubar { padding: 0 4px; }
+menubar > menuitem { padding: 4px 10px; border-radius: 6px; }
+popover, popover.background { border-radius: 12px; }
+tooltip, tooltip.background { border-radius: 8px; background: rgba(40,43,52,0.96); color: #fff; padding: 4px 8px; }
+placessidebar, .sidebar { background: #1b1d22; }
+placessidebar row, .sidebar row { border-radius: 8px; margin: 1px 6px; min-height: 30px; }
+notebook > header { background: #202228; border: none; }
+notebook > header tab { border-radius: 8px 8px 0 0; padding: 6px 14px; }
+scrollbar { background: transparent; border: none; }
+scrollbar slider {
+    min-width: 6px; min-height: 6px; border-radius: 999px;
+    background: rgba(255,255,255,0.28); border: 3px solid transparent;
+}
+scrollbar slider:hover { background: rgba(255,255,255,0.45); }
+
+/* kvorix-outline: без композитора у окон нет теней — тонкая обводка, чтобы окна не сливались (как в Windows 11) */
+window.csd decoration, window.solid-csd decoration { border: 1px solid #6b7a99; box-shadow: none; border-radius: 0; margin: 0; }
+window.csd decoration:backdrop, window.solid-csd decoration:backdrop { border-color: #3d424d; }
+window.solid-csd { padding: 0; }

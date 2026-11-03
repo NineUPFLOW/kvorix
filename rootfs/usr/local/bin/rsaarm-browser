@@ -1,0 +1,6 @@
+#!/bin/bash
+export PULSE_SERVER="unix:${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native"
+exec /usr/bin/chromium --noerrdialogs \
+  --disable-features=AudioServiceOutOfProcess \
+  --autoplay-policy=no-user-gesture-required \
+  "$@"

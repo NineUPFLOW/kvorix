@@ -1,0 +1,5 @@
+#!/bin/bash
+export DISPLAY=${DISPLAY:-:0}
+pkill -f "python3 /usr/local/share/armbian-gui/[c]enter.py"
+sleep 0.5
+setsid python3 /usr/local/share/armbian-gui/center.py --prewarm >/tmp/center-$(id -u).log 2>&1 </dev/null &

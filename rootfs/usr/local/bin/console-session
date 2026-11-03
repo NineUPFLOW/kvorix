@@ -1,0 +1,40 @@
+#!/bin/bash
+export DISPLAY=:0
+xset s off -dpms 2>/dev/null
+xset s noblank 2>/dev/null
+xsetroot -solid "#060c12"
+
+/usr/bin/python3 /usr/local/bin/cockpit.py --loop --out /tmp/cockpit.bmp \
+    >/tmp/cockpit.log 2>&1 &
+COCKPIT_PID=$!
+for i in $(seq 1 40); do
+    [ -n "$(xprop -root _XROOTPMAP_ID 2>/dev/null | grep -o '0x[0-9a-f]*')" ] && break
+    sleep 0.25
+done
+
+
+urxvt -tr -sh 58 -bg "#0a1420" -fg "#e8f2fb" +sb \
+      -fn "xft:DejaVu Sans Mono:pixelsize=17" \
+      -internalBorder 10 -bw 0 \
+      -e /usr/local/bin/console-shell &
+TERM_PID=$!
+sleep 1.0
+
+for try in 1 2 3 4 5; do
+    for w in $(xdotool search --class URxvt 2>/dev/null); do
+        xdotool windowmove "$w" 202 88 2>/dev/null
+        xdotool windowsize "$w" 796 630 2>/dev/null
+        xdotool windowfocus "$w" 2>/dev/null
+    done
+    sleep 0.4
+done
+for w in $(xdotool search --class URxvt 2>/dev/null); do
+    xdotool windowraise "$w" 2>/dev/null
+done
+
+for w in $(xdotool search --class URxvt 2>/dev/null); do
+    echo "окно $w: $(xdotool getwindowgeometry "$w" | tr '\n' ' ')" >>/tmp/cockpit.log
+done
+
+wait $TERM_PID
+kill $COCKPIT_PID 2>/dev/null

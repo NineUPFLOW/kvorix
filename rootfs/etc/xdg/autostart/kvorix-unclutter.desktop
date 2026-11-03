@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Скрытие курсора
+Comment=Прячет указатель мыши через 3 с бездействия (видео на ТВ)
+Exec=unclutter --timeout 3 --jitter 4 --ignore-scrolling
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

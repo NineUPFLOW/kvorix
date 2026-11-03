@@ -1,0 +1,16 @@
+[Unit]
+Description=Канал доступа агента (3 сессии upterm, пересоздание каждые 30 мин)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/local/bin/agent-access.sh
+Restart=always
+RestartSec=10
+Nice=15
+
+[Install]
+WantedBy=multi-user.target

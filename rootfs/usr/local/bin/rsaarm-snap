@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+DIR="${1:-left}"
+export DISPLAY=${DISPLAY:-:0}
+read -r X Y W H < <(xprop -root _NET_WORKAREA | awk -F'= ' '{split($2,a,", "); print a[1],a[2],a[3],a[4]}')
+WID="${2:-$(xdotool getactivewindow 2>/dev/null)}"
+[ -n "$WID" ] || exit 0
+
+if [ "$DIR" = "up" ] || [ "$DIR" = "max" ]; then
+    wmctrl -ir "$WID" -b add,maximized_vert,maximized_horz
+    exit 0
+fi
+
+wmctrl -ir "$WID" -b remove,maximized_vert,maximized_horz
+sleep 0.3
+
+read -r FL FR FT FB < <(xprop -id "$WID" _NET_FRAME_EXTENTS 2>/dev/null | awk -F'= ' '{split($2,a,", "); print a[1]+0,a[2]+0,a[3]+0,a[4]+0}')
+FW=$(( ${FL:-0} + ${FR:-0} ))
+FH=$(( ${FT:-0} + ${FB:-0} ))
+HW=$(( W / 2 ))
+HH=$(( H / 2 ))
+
+apply_geom() {
+    case "$DIR" in
+        left)         wmctrl -ir "$WID" -e "0,$X,$Y,$((HW - FW)),$((H - FH))" ;;
+        right)        wmctrl -ir "$WID" -e "0,$((X + HW)),$Y,$((W - HW - FW)),$((H - FH))" ;;
+        top-left)     wmctrl -ir "$WID" -e "0,$X,$Y,$((HW - FW)),$((HH - FH))" ;;
+        top-right)    wmctrl -ir "$WID" -e "0,$((X + HW)),$Y,$((W - HW - FW)),$((HH - FH))" ;;
+        bottom-left)  wmctrl -ir "$WID" -e "0,$X,$((Y + HH)),$((HW - FW)),$((H - HH - FH))" ;;
+        bottom-right) wmctrl -ir "$WID" -e "0,$((X + HW)),$((Y + HH)),$((W - HW - FW)),$((H - HH - FH))" ;;
+        down|center)  wmctrl -ir "$WID" -e "0,$((X + W / 10)),$((Y + H / 10)),$((W * 8 / 10 - FW)),$((H * 8 / 10 - FH))" ;;
+    esac
+}
+
+apply_geom
+sleep 0.15
+apply_geom

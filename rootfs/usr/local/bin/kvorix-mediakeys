@@ -1,0 +1,27 @@
+#!/bin/bash
+k() { xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/$1" -n -t string -s "$2" 2>/dev/null || xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/$1" -s "$2"; }
+if command -v wpctl >/dev/null 2>&1; then
+    k XF86AudioRaiseVolume "sh -c 'wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 && wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+'"
+    k XF86AudioLowerVolume "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+    k XF86AudioMute        "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+    k XF86AudioMicMute     "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+else
+    k XF86AudioRaiseVolume "pactl set-sink-volume @DEFAULT_SINK@ +5%"
+    k XF86AudioLowerVolume "pactl set-sink-volume @DEFAULT_SINK@ -5%"
+    k XF86AudioMute        "pactl set-sink-mute @DEFAULT_SINK@ toggle"
+    k XF86AudioMicMute     "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
+fi
+k XF86AudioPlay        "playerctl play-pause"
+k XF86AudioPause       "playerctl pause"
+k XF86AudioStop        "playerctl stop"
+k XF86AudioNext        "playerctl next"
+k XF86AudioPrev        "playerctl previous"
+k XF86Calculator       "galculator"
+k XF86Explorer         "thunar"
+k XF86MyComputer       "thunar"
+k XF86Search           "rsaarm-start"
+k XF86HomePage         "rsaarm-browser"
+k XF86WWW              "rsaarm-browser"
+k XF86Tools            "armbian-center"
+k XF86Display          "armbian-center --page=display"
+xfconf-query -c xfce4-keyboard-shortcuts -l -v | grep -c "XF86"

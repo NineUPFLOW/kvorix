@@ -1,0 +1,5 @@
+#!/bin/bash
+export DISPLAY=:0 XAUTHORITY=/home/agent/.Xauthority
+pkill -f "bash /usr/local/share/rsaarm/shell/rsaarm-[w]atchdog.sh"
+sleep 0.5
+setsid -f bash /usr/local/share/rsaarm/shell/rsaarm-watchdog.sh >/dev/null 2>&1 </dev/null

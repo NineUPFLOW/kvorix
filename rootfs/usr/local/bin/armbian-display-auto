@@ -1,0 +1,26 @@
+#!/bin/bash
+OUT=$(xrandr | awk '/ connected/{print $1; exit}')
+[ -n "$OUT" ] || exit 0
+
+add() { xrandr --newmode "$1" "${@:2}" 2>/dev/null; xrandr --addmode "$OUT" "$1" 2>/dev/null; }
+add 1920x1080_60 148.50 1920 2008 2052 2200 1080 1084 1089 1125 +hsync +vsync
+add 1680x1050_60 146.25 1680 1784 1960 2240 1050 1053 1059 1089 -hsync +vsync
+add 1600x900_60  108.00 1600 1624 1704 1800 900 901 904 1000 +hsync +vsync
+add 1440x900_60  106.50 1440 1520 1672 1904 900 903 909 934 -hsync +vsync
+add 1366x768_60   85.50 1366 1436 1579 1792 768 771 774 798 +hsync +vsync
+add 1280x1024_60 108.00 1280 1328 1440 1688 1024 1025 1028 1066 +hsync +vsync
+add 1280x720_60   74.25 1280 1390 1430 1650 720 725 730 750 +hsync +vsync
+[ "${1:-}" = --modes-only ] && exit 0
+
+MON=$(cat /run/hdmi-monitor 2>/dev/null)
+[ -n "$MON" ] || MON=$(ls -t /var/lib/hdmi-autodetect 2>/dev/null | grep -v edid | head -1)
+M=$( [ -n "$MON" ] && cat "/var/lib/hdmi-autodetect/$MON" 2>/dev/null )
+case "$M" in
+    fit) exec armbian-screen-fit --apply ;;
+    ?*)  xrandr --output "$OUT" --mode "$M" && exit 0 ;;
+esac
+if [ "$(cat /sys/class/drm/card*-HDMI-A-1/edid 2>/dev/null | wc -c)" -gt 0 ]; then
+    exec xrandr --output "$OUT" --auto
+fi
+xrandr --output "$OUT" --mode 1920x1080_60
+setsid xfwm4 --replace >/dev/null 2>&1 </dev/null &

@@ -1,0 +1,8 @@
+#!/bin/sh
+U=${SUDO_USER:-$(id -un)}
+run() { if [ "$(id -u)" = 0 ]; then runuser -u "$U" -- env DISPLAY=:0 XAUTHORITY=/home/$U/.Xauthority DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u "$U")/bus armbian-personalize "$@"; else armbian-personalize "$@"; fi; }
+case "$1" in
+  theme) run set mode "$2" ;;
+  effects) [ "$2" = off ] && run set animations false || run set animations true ;;
+  *) echo "rsaarm-appearance theme light|dark | effects full|basic|off"; exit 1 ;;
+esac

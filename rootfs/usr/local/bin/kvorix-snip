@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+
+import math
+import os
+import subprocess
+import sys
+import time
+
+import cairo
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GLib, Gtk
+
+
+def _shots_dir():
+    d = os.path.expanduser("~/Изображения/Снимки экрана")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def take_shot(mode="full", delay=0):
+    if delay > 0:
+        time.sleep(delay)
+    out = os.path.join(_shots_dir(), time.strftime("Снимок_%Y-%m-%d_%H-%M-%S.png"))
+    cmd = ["scrot", "-o", out]
+    if mode == "window":
+        cmd = ["scrot", "-u", "-b", "-o", out]
+    subprocess.run(cmd, timeout=10)
+    if os.path.exists(out):
+        subprocess.Popen(["xclip", "-selection", "clipboard", "-t", "image/png", "-i", out],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["notify-send", "-i", "applets-screenshooter", "Снимок сохранён",
+                          f"Скопирован в буфер обмена:\n{os.path.basename(out)}"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return out
+
+
+class SnipBar(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_title("Ножницы Kvorix")
+        self.set_decorated(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_above(True)
+        self.set_resizable(False)
+        self.set_app_paintable(True)
+
+        dark = True
+        try:
+            with open(os.path.expanduser("~/.config/rsaarm/theme")) as f:
+                dark = f.read().strip() == "dark"
+        except OSError:
+            pass
+
+        bg = "#1e222d" if dark else "#f8fafd"
+        fg = "#eef1f8" if dark else "#1c2130"
+        brd = "#363d52" if dark else "#cfd6e4"
+        css = f"""
+        .snip-box {{ background-color: {bg}; color: {fg}; padding: 8px 12px; font: 11px "Inter"; }}
+        .snip-btn {{
+            background: rgba(127, 140, 170, 0.12);
+            border: 1px solid {brd};
+            border-radius: 9px;
+            padding: 7px 12px;
+            color: {fg};
+            font: bold 11px "Inter";
+        }}
+        .snip-btn:hover {{ background: rgba(47, 124, 246, 0.22); border-color: #2f7cf6; }}
+        .snip-close:hover {{ background: #c42b1c; color: #ffffff; border-color: #c42b1c; }}
+        """
+        pr = Gtk.CssProvider()
+        pr.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), pr, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row.get_style_context().add_class("snip-box")
+        for label, icon, cb in (
+            ("Весь экран", "video-display-symbolic", lambda *_: self._do("full", 0)),
+            ("Окно", "window-new-symbolic", lambda *_: self._do("window", 0)),
+            ("Таймер 3 с", "alarm-symbolic", lambda *_: self._do("full", 3)),
+            ("Папка", "folder-pictures-symbolic", lambda *_: self._folder()),
+        ):
+            b = Gtk.Button()
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            hb.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU), False, False, 0)
+            hb.pack_start(Gtk.Label(label=label), False, False, 0)
+            b.add(hb)
+            b.get_style_context().add_class("snip-btn")
+            b.connect("clicked", cb)
+            row.pack_start(b, False, False, 0)
+
+        xbtn = Gtk.Button(label="✕")
+        xbtn.get_style_context().add_class("snip-btn")
+        xbtn.get_style_context().add_class("snip-close")
+        xbtn.connect("clicked", lambda *_: Gtk.main_quit())
+        row.pack_start(xbtn, False, False, 0)
+        self.add(row)
+
+        self.connect("size-allocate", self._shape)
+        self.connect("key-press-event", lambda _w, ev: Gtk.main_quit() if ev.keyval == Gdk.KEY_Escape else False)
+        self.show_all()
+        sw = Gdk.Screen.get_default().get_width()
+        w, _ = self.get_preferred_width()
+        self.move((sw - (w or 460)) // 2, 24)
+
+    def _shape(self, _w, alloc):
+        w, h, r = alloc.width, alloc.height, 14
+        if w < 10 or h < 10 or not self.get_window():
+            return
+        surf = cairo.ImageSurface(cairo.FORMAT_A1, w, h)
+        cr = cairo.Context(surf)
+        cr.set_operator(cairo.OPERATOR_CLEAR)
+        cr.paint()
+        cr.set_operator(cairo.OPERATOR_OVER)
+        cr.set_source_rgba(1, 1, 1, 1)
+        cr.arc(w - r, r, r, -math.pi / 2, 0)
+        cr.arc(w - r, h - r, r, 0, math.pi / 2)
+        cr.arc(r, h - r, r, math.pi / 2, math.pi)
+        cr.arc(r, r, r, math.pi, 1.5 * math.pi)
+        cr.close_path()
+        cr.fill()
+        self.get_window().shape_combine_region(Gdk.cairo_region_create_from_surface(surf), 0, 0)
+
+    def _do(self, mode, delay):
+        self.hide()
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        time.sleep(0.18)
+        take_shot(mode=mode, delay=delay)
+        Gtk.main_quit()
+
+    def _folder(self):
+        subprocess.Popen(["setsid", "thunar", _shots_dir()], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        Gtk.main_quit()
+
+
+if __name__ == "__main__":
+    if "--instant" in sys.argv:
+        take_shot("full", 0)
+    else:
+        GLib.set_prgname("kvorix-snip")
+        SnipBar()
+        Gtk.main()

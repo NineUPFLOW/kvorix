@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Kvorix
+Description=Kvorix: логотип со свечением и волна точек
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/kvorix
+ScriptFile=/usr/share/plymouth/themes/kvorix/kvorix.script

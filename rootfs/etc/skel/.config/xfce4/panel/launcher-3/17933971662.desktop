@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Файлы
+Comment=Файловый менеджер
+Exec=thunar
+Icon=system-file-manager
+Terminal=false
+Categories=System;FileManager;
+X-XFCE-Source=file:///usr/share/applications/armbian-files.desktop

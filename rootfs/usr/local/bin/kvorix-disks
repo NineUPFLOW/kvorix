@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+
+import cairo
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GLib, Gtk
+
+sys.path.insert(0, "/usr/local/share/armbian-gui")
+import common as C
+
+
+def _dir_size(path, max_files=4000):
+    total = 0
+    seen = 0
+    try:
+        for root, _dirs, files in os.walk(path):
+            for fn in files:
+                seen += 1
+                if seen > max_files:
+                    return total
+                try:
+                    total += os.lstat(os.path.join(root, fn)).st_size
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    return total
+
+
+def _hex(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+class StorageBar(Gtk.DrawingArea):
+    
+    def __init__(self):
+        super().__init__()
+        self.segments = []
+        self.set_size_request(-1, 24)
+        self.connect("draw", self._draw)
+
+    def set_segments(self, segs):
+        self.segments = segs
+        self.queue_draw()
+
+    def _draw(self, wid, cr):
+        w = wid.get_allocated_width()
+        h = wid.get_allocated_height()
+        r = 8
+        cr.new_sub_path()
+        cr.arc(w - r, r, r, -1.5708, 0)
+        cr.arc(w - r, h - r, r, 0, 1.5708)
+        cr.arc(r, h - r, r, 1.5708, 3.1416)
+        cr.arc(r, r, r, 3.1416, 4.7124)
+        cr.close_path()
+        cr.clip()
+
+        cr.set_source_rgba(0.5, 0.55, 0.65, 0.20)
+        cr.rectangle(0, 0, w, h)
+        cr.fill()
+
+        x = 0.0
+        for frac, col in self.segments:
+            sw = max(0.0, w * frac)
+            if sw > 0.5:
+                cr.set_source_rgb(*_hex(col))
+                cr.rectangle(x, 0, sw, h)
+                cr.fill()
+                x += sw
+        return False
+
+
+class DiskStudio(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Хранилище и диски — Kvorix")
+        self.set_icon_name("drive-harddisk")
+        self.set_default_size(920, 600)
+
+        dark = False
+        try:
+            with open(os.path.expanduser("~/.config/rsaarm/theme")) as f:
+                dark = f.read().strip() == "dark"
+        except OSError:
+            pass
+
+        bg = "#171a22" if dark else "#f4f6fb"
+        card = "#222733" if dark else "#ffffff"
+        brd = "#323848" if dark else "#dcdfe8"
+        fg = "#e8eaf2" if dark else "#1c2130"
+        dim = "#9aa1b2" if dark else "#5e6678"
+        css = f"""
+        .dk-win, .dk-win viewport {{ background-color: {bg}; color: {fg}; font: 12px "Inter"; }}
+        .dk-root {{ background-color: {bg}; color: {fg}; font: 12px "Inter"; }}
+        .dk-card {{ background-color: {card}; border: 1px solid {brd}; border-radius: 12px; padding: 14px 16px; }}
+        .dk-h {{ font: bold 15px "Inter"; color: {fg}; }}
+        .dk-sub {{ font: 11px "Inter"; color: {dim}; }}
+        .dk-btn {{ background: #2f7cf6; color: #ffffff; border: none; border-radius: 8px; padding: 7px 14px; font: bold 11.5px "Inter"; }}
+        .dk-ghost {{ background: rgba(127,140,170,0.12); color: {fg}; border: 1px solid {brd}; border-radius: 8px; padding: 6px 12px; font: 11.5px "Inter"; }}
+        .dk-ghost:hover {{ border-color: #2f7cf6; }}
+        .dk-part {{ background: rgba(47,124,246,0.10); border: 1px solid rgba(47,124,246,0.35); border-radius: 9px; padding: 8px 10px; }}
+        """
+        pr = Gtk.CssProvider()
+        pr.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), pr, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.get_style_context().add_class("dk-win")
+
+        sw = Gtk.ScrolledWindow()
+        sw.get_style_context().add_class("dk-win")
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.add(sw)
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        root.get_style_context().add_class("dk-root")
+        root.set_margin_top(16); root.set_margin_bottom(16)
+        root.set_margin_start(18); root.set_margin_end(18)
+        sw.add(root)
+
+        sc = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        sc.get_style_context().add_class("dk-card")
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.lbl_main_title = Gtk.Label(label="Основная память приставки", xalign=0)
+        self.lbl_main_title.get_style_context().add_class("dk-h")
+        top.pack_start(self.lbl_main_title, True, True, 0)
+
+        clean_btn = Gtk.Button(label="Безопасная очистка кэша и мусора")
+        clean_btn.get_style_context().add_class("dk-btn")
+        clean_btn.connect("clicked", self._safe_cleanup)
+        top.pack_start(clean_btn, False, False, 0)
+        sc.pack_start(top, False, False, 0)
+
+        self.sbar = StorageBar()
+        sc.pack_start(self.sbar, False, False, 0)
+
+        self.legend_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        sc.pack_start(self.legend_box, False, False, 0)
+        root.pack_start(sc, False, False, 0)
+
+        hdr = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        hl = Gtk.Label(label="Физические диски, разделы и USB-накопители", xalign=0)
+        hl.get_style_context().add_class("dk-h")
+        hdr.pack_start(hl, True, True, 0)
+
+        ref_b = Gtk.Button(label="⟳ Обновить")
+        ref_b.get_style_context().add_class("dk-ghost")
+        ref_b.connect("clicked", lambda *_: self.refresh())
+        hdr.pack_start(ref_b, False, False, 0)
+
+        if shutil.which("gnome-disks"):
+            gd_b = Gtk.Button(label="Разметка разделов (GNOME Disks)")
+            gd_b.get_style_context().add_class("dk-ghost")
+            gd_b.connect("clicked", lambda *_: subprocess.Popen(
+                ["setsid", "gnome-disks"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            hdr.pack_start(gd_b, False, False, 0)
+        root.pack_start(hdr, False, False, 0)
+
+        self.disks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        root.pack_start(self.disks_box, False, False, 0)
+
+        self.refresh()
+        self.connect("destroy", lambda *_: Gtk.main_quit())
+
+    def _safe_cleanup(self, *_):
+        before = shutil.disk_usage("/").free
+        for rel in ("~/.cache/thumbnails", "~/.local/share/Trash/files", "~/.local/share/Trash/info"):
+            p = os.path.expanduser(rel)
+            if os.path.isdir(p):
+                for fn in os.listdir(p):
+                    fp = os.path.join(p, fn)
+                    try:
+                        shutil.rmtree(fp) if os.path.isdir(fp) else os.remove(fp)
+                    except OSError:
+                        pass
+        C.sudo("journalctl --vacuum-size=25M >/dev/null 2>&1; apt-get clean >/dev/null 2>&1 || true", timeout=20)
+        after = shutil.disk_usage("/").free
+        freed = max(0, after - before)
+        C.notify("Хранилище Kvorix", f"Очистка завершена: освобождено {C.human_bytes(freed)}")
+        self.refresh()
+
+    def refresh(self):
+        du = shutil.disk_usage("/")
+        home_b = _dir_size(os.path.expanduser("~"), max_files=2500)
+        cache_b = (_dir_size(os.path.expanduser("~/.cache"), 1500)
+                   + _dir_size("/var/cache/apt/archives", 500)
+                   + _dir_size("/var/log", 500))
+        trash_b = _dir_size(os.path.expanduser("~/.local/share/Trash"), 800)
+        sys_b = max(0, du.used - home_b - cache_b - trash_b)
+
+        self.lbl_main_title.set_text(
+            f"Основная память: свободно {C.human_bytes(du.free)} из {C.human_bytes(du.total)}"
+        )
+        tot = max(1, du.total)
+        segs = [
+            (sys_b / tot, "#2f7cf6", f"Система и программы: {C.human_bytes(sys_b)}"),
+            (home_b / tot, "#10b981", f"Личные файлы: {C.human_bytes(home_b)}"),
+            ((cache_b + trash_b) / tot, "#f59e0b", f"Кэш, журналы и корзина: {C.human_bytes(cache_b + trash_b)}"),
+        ]
+        self.sbar.set_segments([(f, c) for f, c, _ in segs])
+        for ch in self.legend_box.get_children():
+            self.legend_box.remove(ch)
+        for _f, col, txt in segs:
+            lb = Gtk.Label()
+            lb.set_markup(f'<span foreground="{col}">●</span> {GLib.markup_escape_text(txt)}')
+            lb.get_style_context().add_class("dk-sub")
+            self.legend_box.pack_start(lb, False, False, 0)
+        self.legend_box.show_all()
+
+        for ch in self.disks_box.get_children():
+            self.disks_box.remove(ch)
+        raw = C.out(["lsblk", "-J", "-b", "-e", "7", "-o", "NAME,SIZE,FSTYPE,MOUNTPOINT,LABEL,RM,MODEL,TYPE"], timeout=8)
+        try:
+            devs = json.loads(raw).get("blockdevices", [])
+        except Exception:
+            devs = []
+
+        for d in devs:
+            name = d.get("name", "")
+            if name.startswith(("zram", "ram", "loop", "mtdblock", "mmcblk2boot")):
+                continue
+            size = int(d.get("size") or 0)
+            if size < 16 * 1024 * 1024:
+                continue
+            is_rm = bool(d.get("rm"))
+            kind = "USB / съёмный накопитель" if is_rm else ("Встроенная память eMMC" if "mmcblk" in name else "Диск")
+            model = (d.get("model") or "").strip()
+            title = f"{kind} ({name})" + (f" — {model}" if model else "") + f" · {C.human_bytes(size)}"
+
+            dc = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            dc.get_style_context().add_class("dk-card")
+            dh = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            dl = Gtk.Label(label=title, xalign=0); dl.get_style_context().add_class("dk-h")
+            dh.pack_start(dl, True, True, 0)
+            dc.pack_start(dh, False, False, 0)
+
+            pbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            children = d.get("children") or [d]
+            for part in children:
+                pname = part.get("name", "")
+                psize = int(part.get("size") or 0)
+                fstype = part.get("fstype") or "раздел"
+                mnt = part.get("mountpoint") or ""
+                lbl = part.get("label") or ("Система" if mnt == "/" else ("Загрузчик" if mnt == "/boot" else pname))
+
+                pb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                pb.get_style_context().add_class("dk-part")
+                pl = Gtk.Label(xalign=0)
+                pl.set_markup(f"<b>{GLib.markup_escape_text(lbl)}</b> ({fstype} · {C.human_bytes(psize)})")
+                pm = Gtk.Label(label=f"Подключён: {mnt}" if mnt else "Не подключён", xalign=0)
+                pm.get_style_context().add_class("dk-sub")
+                pb.pack_start(pl, False, False, 0)
+                pb.pack_start(pm, False, False, 0)
+
+                act_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                if mnt:
+                    ob = Gtk.Button(label="Открыть")
+                    ob.get_style_context().add_class("dk-ghost")
+                    ob.connect("clicked", lambda _b, m=mnt: subprocess.Popen(
+                        ["setsid", "thunar", m], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+                    act_row.pack_start(ob, False, False, 0)
+                    if is_rm and mnt not in ("/", "/boot"):
+                        eb = Gtk.Button(label="Извлечь")
+                        eb.get_style_context().add_class("dk-ghost")
+                        eb.connect("clicked", lambda _b, dv="/dev/" + pname: self._eject(dv))
+                        act_row.pack_start(eb, False, False, 0)
+                elif fstype != "раздел":
+                    mb = Gtk.Button(label="Подключить")
+                    mb.get_style_context().add_class("dk-ghost")
+                    mb.connect("clicked", lambda _b, dv="/dev/" + pname: self._mount(dv))
+                    act_row.pack_start(mb, False, False, 0)
+                pb.pack_start(act_row, False, False, 0)
+                pbar.pack_start(pb, True, True, 0)
+
+            dc.pack_start(pbar, False, False, 0)
+            self.disks_box.pack_start(dc, False, False, 0)
+        self.disks_box.show_all()
+
+    def _mount(self, dev):
+        C.run(["udisksctl", "mount", "-b", dev], timeout=15)
+        self.refresh()
+
+    def _eject(self, dev):
+        C.run(["udisksctl", "unmount", "-b", dev], timeout=15)
+        C.notify("Накопитель", "Устройство безопасно отключено — можно вынимать")
+        self.refresh()
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    GLib.set_prgname("kvorix-disks")
+    w = DiskStudio()
+    w.show_all()
+    Gtk.main()

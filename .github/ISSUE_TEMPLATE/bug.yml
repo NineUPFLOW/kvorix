@@ -1,0 +1,22 @@
+name: Ошибка
+description: Что-то работает не так
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "**Не прикладывайте** пароли, ключи, токены, адреса noVNC и содержимое `/etc/kvorix`."
+  - type: input
+    id: device
+    attributes: {label: Приставка и ревизия, placeholder: "Tanix TX3 (BZ), 2/16 ГБ"}
+    validations: {required: true}
+  - type: input
+    id: version
+    attributes: {label: Версия Kvorix, description: "`cat /etc/kvorix-release`"}
+    validations: {required: true}
+  - type: textarea
+    id: what
+    attributes: {label: Что случилось, description: "Что делали, что ожидали, что получилось"}
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes: {label: Журналы, description: "`sudo kvorix-health-check` и `journalctl -p err -b`", render: text}

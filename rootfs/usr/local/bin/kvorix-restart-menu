@@ -1,0 +1,5 @@
+#!/bin/bash
+export DISPLAY=${DISPLAY:-:0}
+pkill -f "python3 /usr/local/share/rsaarm/shell/rsaarm-[m]enu.py"
+sleep 0.5
+setsid env RSAARM_THEME=$(cat ~/.config/rsaarm/theme 2>/dev/null || echo light) python3 /usr/local/share/rsaarm/shell/rsaarm-menu.py --prewarm >/dev/null 2>&1 </dev/null &

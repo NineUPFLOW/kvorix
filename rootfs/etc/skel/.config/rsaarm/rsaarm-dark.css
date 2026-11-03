@@ -1,0 +1,162 @@
+/* ============================================================
+   RSAarm — тёмная тема оболочки (bar / dock / menu)
+   ============================================================ */
+@define-color accent #5a9bff;
+@define-color accent_soft rgba(90, 155, 255, 0.16);
+@define-color fg #e8eaf2;
+@define-color fg_dim #9aa1b2;
+
+/* ---------- Верхняя панель ---------- */
+.rsaarm-bar {
+    background-color: rgba(21, 24, 33, 0.78);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: @fg;
+    font: 11px "Inter";
+}
+.rsaarm-logo label {
+    font: bold 12.5px "Inter";
+    color: @accent;
+    letter-spacing: 1px;
+}
+.bar-btn {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 4px 7px;
+    color: @fg;
+    transition: 130ms ease;
+}
+.bar-btn:hover {
+    background: rgba(255, 255, 255, 0.10);
+}
+.clock {
+    font: bold 11.5px "Inter";
+    color: @fg;
+    letter-spacing: 0.3px;
+}
+
+/* ---------- Popover'ы панели ---------- */
+popover.background {
+    background-color: rgba(30, 34, 45, 0.98);
+    border-radius: 14px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+    color: @fg;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.pop-btn {
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    padding: 7px 10px;
+    color: @fg;
+    font: 11px "Inter";
+    transition: 120ms ease;
+}
+.pop-btn:hover {
+    background: @accent_soft;
+    color: @accent;
+}
+.pop-btn:checked {
+    background: @accent;
+    color: #10131c;
+}
+
+/* ---------- Dock ---------- */
+.rsaarm-dock {
+    background-color: rgba(26, 30, 41, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 22px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+    color: @fg;
+}
+.dock-btn {
+    background: transparent;
+    border: none;
+    border-radius: 17px;
+    padding: 5px 7px 2px 7px;
+    color: @fg;
+    transition: 140ms ease;
+}
+.dock-btn:hover {
+    background: @accent_soft;
+    -gtk-icon-transform: scale(1.15);
+}
+.dock-btn .dot {
+    font: 8px "Inter";
+    color: transparent;
+}
+.dock-btn.running .dot {
+    color: @accent;
+}
+.dock-btn.minimized .dot {
+    color: @fg_dim;
+}
+.dock-btn.running {
+    background: rgba(90, 155, 255, 0.10);
+}
+
+/* ---------- Меню приложений ---------- */
+.menu-scrim {
+    background-color: rgba(8, 10, 16, 0.52);
+}
+.menu-card {
+    background-color: rgba(28, 32, 43, 0.97);
+    border-radius: 24px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    color: @fg;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.menu-search {
+    border-radius: 13px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 8px 12px;
+    font: 13px "Inter";
+    background: rgba(255, 255, 255, 0.06);
+    color: @fg;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.menu-search:focus {
+    border-color: @accent;
+    box-shadow: 0 0 0 3px rgba(90, 155, 255, 0.22);
+}
+.chip {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    padding: 4px 12px;
+    background: transparent;
+    color: @fg_dim;
+    font: 10.5px "Inter";
+    transition: 120ms ease;
+}
+.chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: @fg;
+}
+.chip:checked {
+    background: @accent;
+    border-color: @accent;
+    color: #10131c;
+}
+.menu-scroll, .menu-scroll viewport {
+    background: transparent;
+}
+.menu-scroll scrollbar slider {
+    min-width: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.16);
+}
+.app-btn {
+    background: transparent;
+    border: none;
+    border-radius: 15px;
+    padding: 10px 8px;
+    color: @fg;
+    transition: 120ms ease;
+}
+.app-btn:hover {
+    background: @accent_soft;
+}
+.app-btn label {
+    font: 10.5px "Inter";
+    color: @fg;
+}

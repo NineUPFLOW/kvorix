@@ -1,0 +1,17 @@
+[Unit]
+Description=Verified private snapshot of Kvorix configuration
+ConditionPathExists=/usr/local/sbin/kvorix-config-snapshot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kvorix-config-snapshot
+ExecStartPost=/usr/local/sbin/kvorix-config-verify --all
+UMask=0077
+Nice=15
+IOSchedulingClass=idle
+TimeoutStartSec=240
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/backups/kvorix-config-private

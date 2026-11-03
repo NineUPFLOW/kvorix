@@ -1,0 +1,15 @@
+<?xml version="1.1" encoding="UTF-8"?>
+
+<channel name="pointers" version="1.0">
+  <property name="XING_WEI_2.4G_USB_USB_Composite_Device_Mouse" type="empty">
+    <property name="Properties" type="empty">
+      <property name="libinput_Accel_Speed" type="double" value="-1"/>
+    </property>
+  </property>
+  <property name="2.4G_Mouse" type="empty">
+    <property name="Properties" type="empty">
+      <property name="libinput_Natural_Scrolling_Enabled" type="int" value="0"/>
+      <property name="libinput_Accel_Speed" type="double" value="0"/>
+    </property>
+  </property>
+</channel>

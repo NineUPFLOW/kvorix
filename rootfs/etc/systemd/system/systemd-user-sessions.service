@@ -1,0 +1,11 @@
+# Kvorix fast local desktop boot (§9.5): local user agent on eMMC does not need network.target
+[Unit]
+Description=Permit User Sessions (local fastboot)
+Documentation=man:systemd-user-sessions.service(8)
+After=local-fs.target nss-user-lookup.target home.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/systemd/systemd-user-sessions start
+ExecStop=/usr/lib/systemd/systemd-user-sessions stop

@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+TARGET="${1:-/srv/share/music}"
+DEV="${AUDIO_DEV:-plughw:0,0}"
+if [ -d "$TARGET" ]; then
+    mapfile -t FILES < <(find "$TARGET" -maxdepth 2 -type f \( -iname '*.mp3' -o -iname '*.flac' -o -iname '*.m4a' -o -iname '*.ogg' -o -iname '*.wav' \) | sort)
+    if [ ${#FILES[@]} -eq 0 ]; then echo "В $TARGET нет аудиофайлов" >&2; exit 1; fi
+    echo "Играю ${#FILES[@]} файл(ов) из $TARGET на $DEV (Ctrl+C — стоп)"
+    for f in "${FILES[@]}"; do
+        echo "  ▶ $(basename "$f")"
+        ffplay -nodisp -autoexit -loglevel error -nodisp -f alsa "$DEV" "$f" || true
+    done
+else
+    echo "Играю $TARGET на $DEV"
+    ffplay -nodisp -autoexit -loglevel error -f alsa "$DEV" "$TARGET"
+fi

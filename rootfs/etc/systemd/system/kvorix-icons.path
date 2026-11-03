@@ -1,0 +1,10 @@
+[Unit]
+Description=Следить за установкой программ (значки Kvorix)
+
+[Path]
+PathChanged=/usr/share/applications
+PathChanged=/usr/local/share/applications
+PathChanged=/home/agent/.local/share/applications
+
+[Install]
+WantedBy=multi-user.target

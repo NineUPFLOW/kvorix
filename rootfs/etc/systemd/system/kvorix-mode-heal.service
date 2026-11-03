@@ -1,0 +1,6 @@
+[Unit]
+Description=Kvorix: автолечение HDMI-режима после отклонения ядром
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/kvorix-mode-heal

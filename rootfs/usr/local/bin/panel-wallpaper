@@ -1,0 +1,33 @@
+#!/bin/bash
+set -e
+WALL=/usr/local/share/console/wallpaper-cockpit.png
+case "${1:-}" in
+  "" )
+    if [ -f "$WALL" ]; then echo "сейчас: $WALL"; else echo "сейчас: встроенные ночные горы"; fi
+    ;;
+  --reset )
+    sudo rm -f "$WALL"
+    sudo systemctl restart tty-console
+    echo "вернул встроенные обои"
+    ;;
+  * )
+    [ -f "$1" ] || { echo "нет такого файла: $1"; exit 1; }
+    /usr/bin/python3 - "$1" "$WALL" <<'PY'
+import sys
+from PIL import Image
+src, dst = sys.argv[1], sys.argv[2]
+im = Image.open(src).convert("RGB")
+k = max(1360 / im.width, 768 / im.height)
+im = im.resize((int(im.width * k + 0.5), int(im.height * k + 0.5)), Image.LANCZOS)
+im = im.crop(((im.width - 1360) // 2, (im.height - 768) // 2,
+              (im.width - 1360) // 2 + 1360, (im.height - 768) // 2 + 768))
+tmp = "/home/agent/.wall.tmp.png"
+im.save(tmp)
+print("подготовлено", im.size)
+PY
+    sudo install -m 644 -o root -g root /home/agent/.wall.tmp.png "$WALL"
+    rm -f /home/agent/.wall.tmp.png
+    sudo systemctl restart tty-console
+    echo "обои заменены, панель перезапущена"
+    ;;
+esac

@@ -1,0 +1,5 @@
+[Unit]
+Description=Kvorix автоотчёт статуса в ntfy
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kvorix-autoreport.sh

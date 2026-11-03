@@ -1,0 +1,669 @@
+#!/usr/bin/env python3
+
+from collections import deque
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+
+import cairo
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GLib, Gtk, Pango
+
+sys.path.insert(0, "/usr/local/share/armbian-gui")
+import autostart as A
+import common as C
+
+PROTECTED_PROCS = {
+    "systemd", "sshd", "Xorg", "lightdm", "xfwm4", "xfdesktop", "xfsettingsd",
+    "xfce4-session", "rsaarm-taskbar.py", "rsaarm-menu.py", "python3", "dbus-daemon",
+    "NetworkManager", "tailscaled", "upterm",
+}
+
+
+def _hex_rgb(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def _theme_tokens():
+    dark = False
+    accent = "#2f7cf6"
+    try:
+        p = os.path.expanduser("~/.config/rsaarm/personalize.json")
+        if os.path.exists(p):
+            cfg = json.load(open(p, encoding="utf-8"))
+            dark = cfg.get("mode") == "dark"
+            acc_map = {
+                "blue": ("#2f7cf6", "#5a9bff"),
+                "teal": ("#0f8f94", "#3fcfd2"),
+                "green": ("#1e8a3c", "#5fd38d"),
+                "purple": ("#7a4ce0", "#b28cff"),
+                "pink": ("#c8327a", "#ff7eb6"),
+                "red": ("#d13438", "#ff7b7b"),
+                "orange": ("#c75c00", "#ffaa44"),
+                "graphite": ("#56606e", "#a7b4c2"),
+            }
+            pair = acc_map.get(cfg.get("accent", "blue"), acc_map["blue"])
+            accent = pair[1] if dark else pair[0]
+    except Exception:
+        pass
+    return {
+        "dark": dark,
+        "accent": accent,
+        "bg": "#171a22" if dark else "#f4f6fb",
+        "rail": "#1d212b" if dark else "#eef1f8",
+        "card": "#222733" if dark else "#ffffff",
+        "border": "#323848" if dark else "#dcdfe8",
+        "fg": "#e8eaf2" if dark else "#1c2130",
+        "dim": "#9aa1b2" if dark else "#5e6678",
+    }
+
+
+class LiveChart(Gtk.DrawingArea):
+    
+    def __init__(self, color_hex="#2f7cf6", max_val=100.0, dark=False):
+        super().__init__()
+        self.color = _hex_rgb(color_hex)
+        self.max_val = max_val
+        self.auto_scale = max_val <= 0
+        self.dark = dark
+        self.data = deque([0.0] * 60, maxlen=60)
+        self.set_size_request(-1, 145)
+        self.connect("draw", self._on_draw)
+
+    def push(self, val):
+        self.data.append(max(0.0, float(val)))
+        self.queue_draw()
+
+    def _on_draw(self, wid, cr):
+        w = wid.get_allocated_width()
+        h = wid.get_allocated_height()
+        if w < 10 or h < 10:
+            return False
+        bg = (0.11, 0.13, 0.18) if self.dark else (0.98, 0.99, 1.0)
+        grid = (1, 1, 1, 0.07) if self.dark else (0.1, 0.15, 0.25, 0.08)
+        cr.set_source_rgb(*bg)
+        cr.rectangle(0, 0, w, h)
+        cr.fill()
+
+        cr.set_line_width(1.0)
+        cr.set_source_rgba(*grid)
+        for i in range(1, 4):
+            y = int(h * i / 4) + 0.5
+            cr.move_to(0, y)
+            cr.line_to(w, y)
+        for i in range(1, 6):
+            x = int(w * i / 6) + 0.5
+            cr.move_to(x, 0)
+            cr.line_to(x, h)
+        cr.stroke()
+
+        top = max(max(self.data), 10.0) * 1.15 if self.auto_scale else max(self.max_val, 1.0)
+        pts = []
+        n = len(self.data)
+        for idx, val in enumerate(self.data):
+            x = w * idx / max(1, n - 1)
+            y = h - 3 - (h - 8) * min(1.0, val / top)
+            pts.append((x, y))
+
+        if pts:
+            pat = cairo.LinearGradient(0, 0, 0, h)
+            pat.add_color_stop_rgba(0.0, *self.color, 0.34)
+            pat.add_color_stop_rgba(1.0, *self.color, 0.03)
+            cr.move_to(0, h)
+            for x, y in pts:
+                cr.line_to(x, y)
+            cr.line_to(w, h)
+            cr.close_path()
+            cr.set_source(pat)
+            cr.fill()
+
+            cr.set_line_width(2.0)
+            cr.set_source_rgba(*self.color, 0.95)
+            cr.move_to(*pts[0])
+            for x, y in pts[1:]:
+                cr.line_to(x, y)
+            cr.stroke()
+
+        cr.set_line_width(1.0)
+        cr.set_source_rgba(*self.color, 0.35)
+        cr.rectangle(0.5, 0.5, w - 1, h - 1)
+        cr.stroke()
+        return False
+
+
+class TaskManagerWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Диспетчер задач")
+        try:
+            self.set_wmclass("xfce4-taskmanager", "Xfce4-taskmanager")
+        except Exception:
+            pass
+        self.set_icon_name("utilities-system-monitor")
+        self.set_default_size(980, 610)
+        self.tok = _theme_tokens()
+        self._load_css()
+
+        self._prev_cpu = C.cpu_times()
+        self._prev_proc_ticks = {}
+        self._prev_disk = self._read_disk_bytes()
+        self._prev_net = self._read_net_bytes()
+        self._prev_ts = time.monotonic()
+        self._proc_query = ""
+
+        root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        root.get_style_context().add_class("tm-root")
+        self.add(root)
+
+        rail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        rail.get_style_context().add_class("tm-rail")
+        rail.set_size_request(196, -1)
+        root.pack_start(rail, False, False, 0)
+
+        brand = Gtk.Label(label="Диспетчер задач")
+        brand.get_style_context().add_class("tm-brand")
+        brand.set_halign(Gtk.Align.START)
+        rail.pack_start(brand, False, False, 6)
+
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_transition_duration(120)
+        root.pack_start(self.stack, True, True, 0)
+
+        self.nav_btns = {}
+        for key, title, icon in (
+            ("procs", "Процессы", "view-list-symbolic"),
+            ("perf", "Производительность", "utilities-system-monitor-symbolic"),
+            ("startup", "Автозагрузка", "system-run-symbolic"),
+            ("services", "Службы", "emblem-system-symbolic"),
+        ):
+            b = Gtk.ToggleButton()
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            hb.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU), False, False, 0)
+            lbl = Gtk.Label(label=title)
+            lbl.set_halign(Gtk.Align.START)
+            hb.pack_start(lbl, True, True, 0)
+            b.add(hb)
+            b.get_style_context().add_class("tm-nav")
+            b.connect("toggled", self._on_nav, key)
+            self.nav_btns[key] = b
+            rail.pack_start(b, False, False, 0)
+
+        rail.pack_start(Gtk.Box(), True, True, 0)
+        open_set = Gtk.Button(label="⚙ Параметры системы")
+        open_set.get_style_context().add_class("tm-ghost")
+        open_set.connect("clicked", lambda *_: subprocess.Popen(
+            ["setsid", "armbian-center", "--page=perf"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        rail.pack_start(open_set, False, False, 0)
+
+        self.stack.add_named(self._build_procs_tab(), "procs")
+        self.stack.add_named(self._build_perf_tab(), "perf")
+        self.stack.add_named(self._build_startup_tab(), "startup")
+        self.stack.add_named(self._build_services_tab(), "services")
+
+        init_tab = "procs"
+        for a in sys.argv[1:]:
+            if a.startswith("--tab="):
+                t0 = a.split("=", 1)[1].strip()
+                if t0 in self.nav_btns:
+                    init_tab = t0
+        self._nav_guard = True
+        self.nav_btns[init_tab].set_active(True)
+        self._nav_guard = False
+        self.stack.show_all()
+        self.stack.set_visible_child_name(init_tab)
+        GLib.idle_add(lambda: (self.stack.set_visible_child_name(init_tab), False)[1])
+        if init_tab == "startup":
+            self._refresh_startup()
+        elif init_tab == "services":
+            self._refresh_services()
+
+        self._tick(force_procs=True)
+        GLib.timeout_add(500, lambda: (self._tick(), False)[1])
+        self._tid = GLib.timeout_add(1500, self._tick)
+        self.connect("destroy", lambda *_: Gtk.main_quit())
+
+    def _load_css(self):
+        t = self.tok
+        css = f"""
+        .tm-root {{ background-color: {t['bg']}; color: {t['fg']}; font: 12px "Inter"; }}
+        .tm-rail {{ background-color: {t['rail']}; border-right: 1px solid {t['border']}; padding: 12px 10px; }}
+        .tm-brand {{ font: bold 14px "Inter"; color: {t['fg']}; padding: 2px 8px 8px 8px; }}
+        .tm-nav {{
+            background: transparent; border: none; border-radius: 9px;
+            padding: 9px 12px; color: {t['fg']}; font: 12px "Inter";
+        }}
+        .tm-nav:hover {{ background: rgba(127,140,170,0.12); }}
+        .tm-nav:checked {{ background: {t['accent']}; color: #ffffff; font-weight: bold; }}
+        .tm-card {{
+            background-color: {t['card']}; border: 1px solid {t['border']};
+            border-radius: 12px; padding: 12px 14px;
+        }}
+        .tm-h {{ font: bold 15px "Inter"; color: {t['fg']}; }}
+        .tm-val {{ font: bold 16px "Inter"; color: {t['accent']}; }}
+        .tm-sub {{ font: 11px "Inter"; color: {t['dim']}; }}
+        .tm-btn {{
+            background: {t['accent']}; color: #ffffff; border: none;
+            border-radius: 8px; padding: 7px 14px; font: bold 11.5px "Inter";
+        }}
+        .tm-danger {{
+            background: #d92d20; color: #ffffff; border: none;
+            border-radius: 8px; padding: 7px 14px; font: bold 11.5px "Inter";
+        }}
+        .tm-ghost {{
+            background: rgba(127,140,170,0.12); color: {t['fg']};
+            border: 1px solid {t['border']}; border-radius: 8px; padding: 6px 12px; font: 11.5px "Inter";
+        }}
+        .tm-ghost:hover {{ border-color: {t['accent']}; }}
+        """
+        pr = Gtk.CssProvider()
+        pr.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), pr, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def _on_nav(self, btn, key):
+        if getattr(self, "_nav_guard", False):
+            return
+        self._nav_guard = True
+        for k, b in self.nav_btns.items():
+            b.set_active(k == key)
+        self._nav_guard = False
+        self.stack.set_visible_child_name(key)
+        if key == "startup":
+            self._refresh_startup()
+        elif key == "services":
+            self._refresh_services()
+
+    def _build_procs_tab(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_top(14); box.set_margin_bottom(14)
+        box.set_margin_start(14); box.set_margin_end(14)
+
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        top.set_homogeneous(True)
+        self.pill_cpu = self._metric_pill("Процессор", "0 %")
+        self.pill_ram = self._metric_pill("Память", "0 МБ")
+        self.pill_cnt = self._metric_pill("Процессов", "0")
+        self.pill_tmp = self._metric_pill("Температура", "— °C")
+        for p in (self.pill_cpu[0], self.pill_ram[0], self.pill_cnt[0], self.pill_tmp[0]):
+            top.pack_start(p, True, True, 0)
+        box.pack_start(top, False, False, 0)
+
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        se = Gtk.SearchEntry()
+        se.set_placeholder_text("Фильтр по имени программы или PID…")
+        se.connect("search-changed", lambda w: setattr(self, "_proc_query", w.get_text().strip().lower()) or self._refresh_procs(0.0))
+        bar.pack_start(se, True, True, 0)
+
+        end_btn = Gtk.Button(label="Снять задачу")
+        end_btn.get_style_context().add_class("tm-danger")
+        end_btn.connect("clicked", self._kill_selected)
+        bar.pack_start(end_btn, False, False, 0)
+        box.pack_start(bar, False, False, 0)
+
+        self.proc_store = Gtk.ListStore(str, str, int, float, str, float, str, str)
+        self.proc_tv = Gtk.TreeView(model=self.proc_store)
+        self.proc_tv.set_headers_clickable(True)
+
+        c0 = Gtk.TreeViewColumn("Программа")
+        ri = Gtk.CellRendererPixbuf()
+        rt = Gtk.CellRendererText()
+        rt.set_property("ellipsize", Pango.EllipsizeMode.END)
+        c0.pack_start(ri, False)
+        c0.add_attribute(ri, "icon-name", 0)
+        c0.pack_start(rt, True)
+        c0.add_attribute(rt, "text", 1)
+        c0.set_sort_column_id(1)
+        c0.set_expand(True)
+        self.proc_tv.append_column(c0)
+
+        for title, txt_col, sort_col, w in (
+            ("PID", 2, 2, 80),
+            ("ЦП", 4, 3, 95),
+            ("Память", 6, 5, 115),
+            ("Пользователь", 7, 7, 115),
+        ):
+            r = Gtk.CellRendererText()
+            col = Gtk.TreeViewColumn(title, r, text=txt_col)
+            col.set_sort_column_id(sort_col)
+            col.set_fixed_width(w)
+            self.proc_tv.append_column(col)
+
+        self.proc_store.set_sort_column_id(3, Gtk.SortType.DESCENDING)
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.add(self.proc_tv)
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        card.get_style_context().add_class("tm-card")
+        card.pack_start(sw, True, True, 0)
+        box.pack_start(card, True, True, 0)
+        return box
+
+    def _metric_pill(self, title, val):
+        c = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        c.get_style_context().add_class("tm-card")
+        t = Gtk.Label(label=title); t.get_style_context().add_class("tm-sub"); t.set_halign(Gtk.Align.START)
+        v = Gtk.Label(label=val); v.get_style_context().add_class("tm-val"); v.set_halign(Gtk.Align.START)
+        c.pack_start(t, False, False, 0)
+        c.pack_start(v, False, False, 0)
+        return c, v
+
+    def _kill_selected(self, *_):
+        sel = self.proc_tv.get_selection()
+        if sel is None:
+            return
+        model, it = sel.get_selected()
+        if not it:
+            return
+        name, pid = model[it][1], model[it][2]
+        if name in PROTECTED_PROCS or pid <= 2:
+            d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
+                                  buttons=Gtk.ButtonsType.OK, text=f"Системный процесс «{name}» защищён")
+            d.format_secondary_text("Завершение этого процесса нарушит работу рабочего стола или сетевого доступа.")
+            d.run(); d.destroy()
+            return
+        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION,
+                              buttons=Gtk.ButtonsType.OK_CANCEL, text=f"Завершить «{name}» (PID {pid})?")
+        d.format_secondary_text("Несохранённые данные в этой программе могут быть потеряны.")
+        resp = d.run(); d.destroy()
+        if resp == Gtk.ResponseType.OK:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except PermissionError:
+                C.sudo(["kill", "-TERM", str(pid)])
+            except ProcessLookupError:
+                pass
+            GLib.timeout_add(300, lambda: (self._tick(), False)[1])
+
+    def _build_perf_tab(self):
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_top(14); box.set_margin_bottom(14)
+        box.set_margin_start(14); box.set_margin_end(14)
+        sw.add(box)
+
+        dark = self.tok["dark"]
+        self.ch_cpu = LiveChart(self.tok["accent"], 100.0, dark)
+        self.lbl_cpu_det = Gtk.Label(label="4 ядра Cortex-A55"); self.lbl_cpu_det.get_style_context().add_class("tm-sub")
+        box.pack_start(self._chart_card("Процессор (ЦП)", self.ch_cpu, self.lbl_cpu_det), False, False, 0)
+
+        self.ch_ram = LiveChart("#8b5cf6", 100.0, dark)
+        self.lbl_ram_det = Gtk.Label(label="ОЗУ + ZRAM"); self.lbl_ram_det.get_style_context().add_class("tm-sub")
+        ram_card = self._chart_card("Оперативная память", self.ch_ram, self.lbl_ram_det)
+        drop_b = Gtk.Button(label="Освободить файловый кэш")
+        drop_b.get_style_context().add_class("tm-ghost")
+        drop_b.set_halign(Gtk.Align.END)
+        drop_b.connect("clicked", lambda *_: (C.sudo("sync; echo 3 > /proc/sys/vm/drop_caches"),
+                                              C.notify("Память", "Кэш памяти успешно очищен")))
+        ram_card.pack_start(drop_b, False, False, 0)
+        box.pack_start(ram_card, False, False, 0)
+
+        row2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row2.set_homogeneous(True)
+        self.ch_disk = LiveChart("#10b981", 0.0, dark)
+        self.lbl_disk_det = Gtk.Label(label="0 КБ/с"); self.lbl_disk_det.get_style_context().add_class("tm-sub")
+        row2.pack_start(self._chart_card("Накопитель eMMC", self.ch_disk, self.lbl_disk_det), True, True, 0)
+
+        self.ch_net = LiveChart("#f59e0b", 0.0, dark)
+        self.lbl_net_det = Gtk.Label(label="0 КБ/с"); self.lbl_net_det.get_style_context().add_class("tm-sub")
+        row2.pack_start(self._chart_card("Сеть Wi-Fi / Ethernet", self.ch_net, self.lbl_net_det), True, True, 0)
+        box.pack_start(row2, False, False, 0)
+        return sw
+
+    def _chart_card(self, title, chart, sub_lbl):
+        c = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        c.get_style_context().add_class("tm-card")
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        tl = Gtk.Label(label=title); tl.get_style_context().add_class("tm-h")
+        hb.pack_start(tl, False, False, 0)
+        hb.pack_start(Gtk.Box(), True, True, 0)
+        hb.pack_start(sub_lbl, False, False, 0)
+        c.pack_start(hb, False, False, 0)
+        c.pack_start(chart, False, False, 0)
+        return c
+
+    def _build_startup_tab(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_top(14); box.set_margin_bottom(14)
+        box.set_margin_start(14); box.set_margin_end(14)
+
+        hdr = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        hl = Gtk.Label(label="Программы при входе в систему")
+        hl.get_style_context().add_class("tm-h")
+        hdr.pack_start(hl, False, False, 0)
+        hdr.pack_start(Gtk.Box(), True, True, 0)
+        add_b = Gtk.Button(label="+ Добавить программу")
+        add_b.get_style_context().add_class("tm-btn")
+        add_b.connect("clicked", self._add_startup_dialog)
+        hdr.pack_start(add_b, False, False, 0)
+        box.pack_start(hdr, False, False, 0)
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.startup_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        sw.add(self.startup_list)
+        box.pack_start(sw, True, True, 0)
+        return box
+
+    def _refresh_startup(self):
+        for ch in self.startup_list.get_children():
+            self.startup_list.remove(ch)
+        for item in A.collect_desktop():
+            c = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            c.get_style_context().add_class("tm-card")
+            vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            nl = Gtk.Label(label=item["name"]); nl.set_halign(Gtk.Align.START)
+            nl.set_markup("<b>%s</b>" % GLib.markup_escape_text(item["name"]))
+            el = Gtk.Label(label=item["exec"]); el.get_style_context().add_class("tm-sub"); el.set_halign(Gtk.Align.START)
+            el.set_ellipsize(Pango.EllipsizeMode.END); el.set_max_width_chars(56)
+            vb.pack_start(nl, False, False, 0); vb.pack_start(el, False, False, 0)
+            c.pack_start(vb, True, True, 0)
+
+            sw_btn = Gtk.Switch()
+            sw_btn.set_valign(Gtk.Align.CENTER)
+            sw_btn.set_active(item["enabled"])
+            sw_btn.connect("state-set", lambda _w, st, it=item: (A.set_enabled(it, st), False)[1])
+            c.pack_start(sw_btn, False, False, 0)
+            self.startup_list.pack_start(c, False, False, 0)
+        self.startup_list.show_all()
+
+    def _add_startup_dialog(self, *_):
+        d = Gtk.Dialog(title="Добавить в автозагрузку", transient_for=self, modal=True)
+        d.add_buttons("Отмена", Gtk.ResponseType.CANCEL, "Добавить", Gtk.ResponseType.OK)
+        bx = d.get_content_area()
+        bx.set_spacing(8); bx.set_margin_top(12); bx.set_margin_bottom(12); bx.set_margin_start(14); bx.set_margin_end(14)
+        e_name = Gtk.Entry(); e_name.set_placeholder_text("Название (например: Браузер)")
+        e_cmd = Gtk.Entry(); e_cmd.set_placeholder_text("Команда (например: rsaarm-browser)")
+        bx.pack_start(Gtk.Label(label="Название:", xalign=0), False, False, 0); bx.pack_start(e_name, False, False, 0)
+        bx.pack_start(Gtk.Label(label="Команда запуска:", xalign=0), False, False, 0); bx.pack_start(e_cmd, False, False, 0)
+        d.show_all()
+        if d.run() == Gtk.ResponseType.OK and e_name.get_text().strip() and e_cmd.get_text().strip():
+            A.add_custom(e_name.get_text().strip(), e_cmd.get_text().strip())
+            self._refresh_startup()
+        d.destroy()
+
+    def _build_services_tab(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_top(14); box.set_margin_bottom(14)
+        box.set_margin_start(14); box.set_margin_end(14)
+        hl = Gtk.Label(label="Основные фоновые службы Kvorix", xalign=0)
+        hl.get_style_context().add_class("tm-h")
+        box.pack_start(hl, False, False, 0)
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.svc_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        sw.add(self.svc_list)
+        box.pack_start(sw, True, True, 0)
+        return box
+
+    def _refresh_services(self):
+        for ch in self.svc_list.get_children():
+            self.svc_list.remove(ch)
+        svcs = [
+            ("kvorix-vnc", "Показ экрана на телефоне", True),
+            ("tailscaled", "Частная сеть Tailscale", True),
+            ("kvorix-zapret", "Обход блокировок связи (Zapret)", True),
+            ("bluetooth", "Беспроводная связь Bluetooth", True),
+            ("cups", "Печать на принтерах (CUPS)", True),
+            ("front-panel", "Часы 88:88 на корпусе", True),
+            ("NetworkManager", "Управление сетью и Wi-Fi", False),
+            ("ssh", "Удалённый доступ SSH", False),
+        ]
+        for unit, title, toggleable in svcs:
+            on = subprocess.run(["systemctl", "is-active", "-q", unit]).returncode == 0
+            c = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            c.get_style_context().add_class("tm-card")
+            vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            nl = Gtk.Label(xalign=0); nl.set_markup("<b>%s</b>" % title)
+            sl = Gtk.Label(label="%s · %s" % (unit, "работает" if on else "остановлена"), xalign=0)
+            sl.get_style_context().add_class("tm-sub")
+            vb.pack_start(nl, False, False, 0); vb.pack_start(sl, False, False, 0)
+            c.pack_start(vb, True, True, 0)
+            if toggleable:
+                b = Gtk.Button(label="Остановить" if on else "Запустить")
+                b.get_style_context().add_class("tm-ghost")
+                b.connect("clicked", lambda _b, u=unit, st=on: (
+                    C.sudo(["systemctl", "stop" if st else "start", u]), self._refresh_services()))
+                c.pack_start(b, False, False, 0)
+            else:
+                tag = Gtk.Label(label="системная"); tag.get_style_context().add_class("tm-sub")
+                c.pack_start(tag, False, False, 0)
+            self.svc_list.pack_start(c, False, False, 0)
+        self.svc_list.show_all()
+
+    def _read_disk_bytes(self):
+        tot = 0
+        for line in C.read("/proc/diskstats").splitlines():
+            p = line.split()
+            if len(p) >= 10 and p[2] in ("mmcblk2", "sda", "sdb"):
+                tot += (int(p[5]) + int(p[9])) * 512
+        return tot
+
+    def _read_net_bytes(self):
+        rx = tx = 0
+        for line in C.read("/proc/net/dev").splitlines()[2:]:
+            if ":" not in line:
+                continue
+            dev, rest = line.split(":", 1)
+            if dev.strip() == "lo":
+                continue
+            f = rest.split()
+            if len(f) >= 9:
+                rx += int(f[0]); tx += int(f[8])
+        return rx + tx
+
+    def _tick(self, force_procs=False):
+        now = time.monotonic()
+        dt = max(0.2, now - self._prev_ts)
+        self._prev_ts = now
+
+        busy, total = C.cpu_times()
+        pb, pt = self._prev_cpu
+        self._prev_cpu = (busy, total)
+        dt_ticks = max(1, total - pt)
+        cpu_pct = 100.0 * max(0, busy - pb) / dt_ticks
+
+        tot_ram, used_ram, _av = C.ram()
+        ram_pct = 100.0 * used_ram / max(1, tot_ram)
+        temps = C.temps()
+        t_str = "%.0f °C" % temps[0][1] if temps else "—"
+
+        db = self._read_disk_bytes()
+        disk_kbs = max(0.0, (db - self._prev_disk) / 1024.0 / dt)
+        self._prev_disk = db
+
+        nb = self._read_net_bytes()
+        net_kbs = max(0.0, (nb - self._prev_net) / 1024.0 / dt)
+        self._prev_net = nb
+
+        self.pill_cpu[1].set_text("%.0f %%" % cpu_pct)
+        self.pill_ram[1].set_text("%d / %d МБ" % (used_ram, tot_ram))
+        self.pill_tmp[1].set_text(t_str)
+
+        self.ch_cpu.push(cpu_pct)
+        self.ch_ram.push(ram_pct)
+        self.ch_disk.push(disk_kbs)
+        self.ch_net.push(net_kbs)
+
+        self.lbl_cpu_det.set_text("%.0f %% · %d МГц · %s" % (cpu_pct, C.cpu_cur_mhz(), t_str))
+        tot_sw, used_sw = C.swap()
+        self.lbl_ram_det.set_text("%d из %d МБ (%.0f %%) · Подкачка: %d МБ" % (used_ram, tot_ram, ram_pct, used_sw))
+        self.lbl_disk_det.set_text("Обмен: %.0f КБ/с" % disk_kbs)
+        self.lbl_net_det.set_text("Поток: %.0f КБ/с" % net_kbs)
+
+        if force_procs or self.stack.get_visible_child_name() in ("procs", None):
+            self._refresh_procs(dt_ticks)
+        return True
+
+    def _refresh_procs(self, dt_ticks):
+        sel_pid = None
+        sel = self.proc_tv.get_selection()
+        if sel is not None:
+            model, it = sel.get_selected()
+            if it:
+                sel_pid = model[it][2]
+
+        ncpu = max(1, os.cpu_count() or 4)
+        new_ticks = {}
+        rows = []
+        page_kb = os.sysconf("SC_PAGE_SIZE") // 1024
+        uid_cache = {0: "root", 1001: "agent"}
+        icon_map = {
+            "chromium": "chromium", "thunar": "system-file-manager",
+            "xfce4-terminal": "utilities-terminal", "vlc": "vlc",
+            "mousepad": "accessories-text-editor", "ristretto": "image-x-generic",
+            "python3": "applications-system", "Xorg": "video-display",
+        }
+
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            pid = int(entry)
+            try:
+                with open(f"/proc/{pid}/stat", "rb") as f:
+                    raw = f.read()
+                rp = raw.rfind(b")")
+                lp = raw.find(b"(")
+                name = raw[lp + 1:rp].decode("utf-8", "replace")
+                rest = raw[rp + 2:].split()
+                ticks = int(rest[11]) + int(rest[12])
+                rss_mb = int(rest[21]) * page_kb / 1024.0
+                uid = os.stat(f"/proc/{pid}").st_uid
+            except Exception:
+                continue
+            new_ticks[pid] = ticks
+            prev = self._prev_proc_ticks.get(pid, ticks)
+            p_cpu = (100.0 * max(0, ticks - prev) / (dt_ticks / ncpu)) if dt_ticks > 0 else 0.0
+            p_cpu = min(100.0, p_cpu / ncpu)
+            if self._proc_query and self._proc_query not in name.lower() and self._proc_query not in str(pid):
+                continue
+            user = uid_cache.get(uid, str(uid))
+            ic = icon_map.get(name, "application-x-executable")
+            rows.append((ic, name, pid, p_cpu, "%.1f %%" % p_cpu, rss_mb, "%.1f МБ" % rss_mb, user))
+
+        self._prev_proc_ticks = new_ticks
+        self.pill_cnt[1].set_text(str(len(new_ticks)))
+
+        rows.sort(key=lambda r: (r[3], r[5]), reverse=True)
+        self.proc_store.clear()
+        for r in rows[:90]:
+            it2 = self.proc_store.append(list(r))
+            if sel_pid and r[2] == sel_pid:
+                sel = self.proc_tv.get_selection()
+                if sel is not None:
+                    sel.select_iter(it2)
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    GLib.set_prgname("xfce4-taskmanager")
+    w = TaskManagerWindow()
+    w.show_all()
+    Gtk.main()

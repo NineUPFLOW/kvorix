@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import re
+import subprocess
+import sys
+
+HOME = os.path.expanduser("~")
+CONF = os.path.join(HOME, ".config/rsaarm")
+CFG = os.path.join(CONF, "personalize.json")
+SHELL = "/usr/local/share/rsaarm/shell"
+DEFAULT = {"mode": "light", "accent": "blue", "transparency": True, "animations": True,
+           "nightlight": False}
+ACCENTS = {
+    "blue": ("Синий", "#2f7cf6", "#5a9bff"),
+    "teal": ("Бирюзовый", "#0f8f94", "#3fcfd2"),
+    "green": ("Зелёный", "#1e8a3c", "#5fd38d"),
+    "purple": ("Фиолетовый", "#7a4ce0", "#b28cff"),
+    "pink": ("Розовый", "#c8327a", "#ff7eb6"),
+    "red": ("Красный", "#d13438", "#ff7b7b"),
+    "orange": ("Оранжевый", "#c75c00", "#ffaa44"),
+    "graphite": ("Графит", "#56606e", "#a7b4c2"),
+}
+MARK_A, MARK_B = "/* armbian-accent: начало */", "/* armbian-accent: конец */"
+
+
+def rgb(h):
+    return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def sh(*cmd, timeout=5):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+
+
+_XF_CACHE = {}
+
+
+def xf_map(ch):
+    if ch not in _XF_CACHE:
+        d = {}
+        try:
+            for line in sh("xfconf-query", "-c", ch, "-l", "-v").stdout.splitlines():
+                parts = line.split(None, 1)
+                if len(parts) == 2:
+                    d[parts[0]] = parts[1].strip()
+        except Exception:
+            pass
+        _XF_CACHE[ch] = d
+    return _XF_CACHE[ch]
+
+
+def xf(ch, prop, val, typ="string", only_if_changed=False):
+    sval = str(val)
+    if only_if_changed and xf_map(ch).get(prop) == sval:
+        return
+    try:
+        if sh("xfconf-query", "-c", ch, "-p", prop, "-s", sval).returncode:
+            sh("xfconf-query", "-c", ch, "-p", prop, "-n", "-t", typ, "-s", sval)
+    except Exception:
+        pass
+    if ch in _XF_CACHE:
+        _XF_CACHE[ch][prop] = sval
+
+
+def load():
+    try:
+        return dict(DEFAULT, **json.load(open(CFG)))
+    except (OSError, ValueError):
+        return dict(DEFAULT)
+
+
+def write(path, text):
+    try:
+        if os.path.exists(path) and open(path, encoding="utf-8").read() == text:
+            return
+    except OSError:
+        pass
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    open(tmp, "w", encoding="utf-8").write(text)
+    os.replace(tmp, path)
+
+
+def gtk_accent(a, dark):
+    r, g, b = rgb(a)
+    soft = "rgba(%d,%d,%d,%s)" % (r, g, b, "0.38" if dark else "0.18")
+    fg = "#ffffff" if dark else "#1c2130"
+    return "\n".join([
+        MARK_A,
+        "selection, row:selected, treeview:selected, iconview:selected, .view:selected,",
+        "flowboxchild:selected { background-color: %s; color: %s; }" % (soft, fg),
+        "placessidebar row:selected, .sidebar row:selected { background-image: none; background-color: %s; color: %s; }" % (soft, fg),
+        "check:checked, radio:checked, switch:checked { background-color: %s; border-color: %s; color: #fff; }" % (a, a),
+        "scale highlight, progressbar progress, levelbar block.filled { background-color: %s; }" % a,
+        "scale slider { border-color: %s; }" % a,
+        "button.suggested-action { background-color: %s; border-color: %s; color: #fff; }" % (a, a),
+        "entry:focus { border-bottom-color: %s; }" % a,
+        "notebook > header tab:checked { box-shadow: inset 0 -2px %s; }" % a,
+        "menu menuitem:hover, .menu menuitem:hover, menubar > menuitem:hover { background-color: %s; color: %s; }" % (soft, fg),
+        "*:link, button.link { color: %s; }" % a,
+        MARK_B, ""])
+
+
+def apply(cfg, login=False):
+    dark = cfg["mode"] == "dark"
+    name, light_a, dark_a = ACCENTS.get(cfg["accent"], ACCENTS["blue"])
+    a = dark_a if dark else light_a
+    r, g, b = rgb(a)
+
+    xf("xsettings", "/Net/ThemeName", "Kvorix-Dark" if dark else "Kvorix", only_if_changed=login)
+
+    gp = os.path.join(HOME, ".config/gtk-3.0/gtk.css")
+    old = open(gp, encoding="utf-8").read() if os.path.exists(gp) else ""
+    old = re.sub(re.escape(MARK_A) + ".*?" + re.escape(MARK_B) + "\n?", "", old, flags=re.S)
+    write(gp, old.rstrip() + "\n\n" + gtk_accent(a, dark))
+
+    base = open(os.path.join(SHELL, "rsaarm-dark.css" if dark else "rsaarm.css"), encoding="utf-8").read()
+    src_hex, src_rgb = ("#5a9bff", "90, 155, 255") if dark else ("#2f7cf6", "47, 124, 246")
+    css = base.replace(src_hex, a).replace(src_rgb, "%d, %d, %d" % (r, g, b))
+    tb = "16, 18, 26" if dark else "243, 245, 250"
+    css += "\n.rsaarm-taskbar { background-color: rgba(%s, %s); }\n" % (tb, "1.0")
+    write(os.path.join(CONF, "shell.css"), css)
+
+    c = open(os.path.join(SHELL, "center-dark.css" if dark else "center-light.css"), encoding="utf-8").read()
+    c += "\n@define-color accent %s;\n@define-color accent2 %s;\n" % (a, a)
+    c += ".pill-info { background-color: rgba(%d,%d,%d,0.15); }\n" % (r, g, b)
+    write(os.path.join(CONF, "theme"), "dark\n" if dark else "light\n")
+
+    try:
+        pc = open("/usr/local/share/rsaarm/picom.conf", encoding="utf-8").read()
+        pc = pc.replace("fading = true;", "fading = %s;" % ("true" if cfg["animations"] else "false"))
+        write(os.path.join(CONF, "picom-basic.conf"), pc)
+    except Exception:
+        pass
+    write(os.path.join(CONF, "effects"), "off\n")
+
+    if not login or cfg["nightlight"]:
+        try:
+            out = next((l.split()[0] for l in sh("xrandr").stdout.splitlines() if " connected" in l), None)
+            if out:
+                sh("xrandr", "--output", out, "--gamma", "1:0.86:0.68" if cfg["nightlight"] else "1:1:1")
+        except Exception:
+            pass
+
+    target_wp = "/usr/local/share/rsaarm/wallpaper-%s.png" % ("dark" if dark else "light")
+    if not login:
+        try:
+            for line in sh("xfconf-query", "-c", "xfce4-desktop", "-l").stdout.split():
+                if line.endswith("last-image"):
+                    cur = sh("xfconf-query", "-c", "xfce4-desktop", "-p", line).stdout.strip()
+                    if cur.startswith("/usr/local/share/rsaarm/wallpaper-") and cur != target_wp:
+                        xf("xfce4-desktop", line, target_wp)
+        except Exception:
+            pass
+
+    if login:
+        return
+
+
+    import time as _t
+    for _cmd, _pat in [
+        (["python3", "/usr/local/share/armbian-gui/center.py", "--prewarm"], "armbian-gui/[c]enter.py"),
+        (["python3", "/usr/local/share/rsaarm/shell/rsaarm-menu.py", "--prewarm"], "rsaarm-[m]enu.py"),
+    ]:
+        _stable = 0
+        for _attempt in range(120):
+            _t.sleep(0.5)
+            try:
+                r = subprocess.run(["pgrep", "-f", _pat], capture_output=True, text=True, timeout=2)
+                if r.returncode == 0:
+                    _stable += 1
+                    if _stable >= 6:
+                        break
+                else:
+                    _stable = 0
+                    subprocess.Popen(_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                     start_new_session=True, close_fds=True)
+            except Exception:
+                _stable = 0
+
+def main():
+    args = sys.argv[1:]
+    cfg = load()
+    if args[:1] == ["get"]:
+        print(json.dumps(dict(cfg, accents={k: v[0] for k, v in ACCENTS.items()}), ensure_ascii=False))
+        return
+    if args[:1] == ["set"] and len(args) >= 3:
+        k, v = args[1], args[2]
+        if k not in DEFAULT:
+            sys.exit("неизвестный параметр: %s" % k)
+        if isinstance(DEFAULT[k], bool):
+            v = v.lower() in ("1", "true", "on", "yes", "да")
+        elif k == "mode" and v not in ("light", "dark"):
+            sys.exit("mode: light или dark")
+        elif k == "accent" and v not in ACCENTS:
+            sys.exit("accent: " + ", ".join(ACCENTS))
+        cfg[k] = v
+        write(CFG, json.dumps(cfg, ensure_ascii=False))
+    apply(cfg, login="--login" in args)
+
+
+if __name__ == "__main__":
+    main()

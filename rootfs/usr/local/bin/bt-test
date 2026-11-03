@@ -1,0 +1,16 @@
+#!/bin/bash
+echo "=================================================================="
+echo " Проверка Bluetooth. Телефон держите рядом, экран Bluetooth открыт."
+echo " Идёт поиск 40 секунд, ничего нажимать не надо."
+echo "=================================================================="
+sudo hciconfig hci0 up 2>/dev/null
+sudo btmgmt power on >/dev/null 2>&1
+sudo btmgmt discov yes >/dev/null 2>&1
+sudo timeout 45 btmgmt find 2>&1 | grep -E "dev_found|discovering"
+echo "------------------------------------------------------------------"
+N=$(sudo timeout 45 btmgmt find 2>&1 | grep -c "dev_found")
+echo "Найдено устройств: $N"
+if [ "$N" -gt 0 ]; then echo "РЕЗУЛЬТАТ: приём радио работает"; else echo "РЕЗУЛЬТАТ: приём не работает"; fi
+echo "Адрес адаптера: $(hciconfig hci0 2>/dev/null | grep -o 'BD Address: [0-9A-F:]*' | cut -d' ' -f3)"
+echo "Имя: $(hciconfig hci0 2>/dev/null | grep -o "Name: '.*'" )"
+echo "Флаги: $(hciconfig hci0 2>/dev/null | grep -o 'UP RUNNING.*')"

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+ <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".18"/><stop offset="1" stop-color="#000000" stop-opacity=".08"/></linearGradient></defs>
+ <rect x="4" y="4" width="56" height="56" rx="15" fill="#0891b2"/>
+ <rect x="4" y="4" width="56" height="56" rx="15" fill="url(#g)"/>
+ <svg x="17" y="17" width="30" height="30" viewBox="0 0 16 16" color="#ffffff" fill="#ffffff">
+ <defs>
+  <style id="current-color-scheme" type="text/css">
+   .ColorScheme-Text { color:#ffffff; } .ColorScheme-Highlight { color:#ffffff; } .ColorScheme-NeutralText { color:#ffffff; } .ColorScheme-PositiveText { color:#ffffff; } .ColorScheme-NegativeText { color:#ffffff; }
+  </style>
+ </defs>
+ <path style="fill:#ffffff" class="ColorScheme-Text" d="M 3,1 C 3,1 2.01,1 2,2 V 6 H 0 V 8 H 16 V 6 H 14 V 2 C 14.01,1 13,1 13,1 Z M 4,3 H 12 V 6 H 4 Z M 2,9 V 14 C 2,14 2,15 3,15 H 13 C 14,15 14,14 14,14 V 9 H 12 V 13 H 4 V 9 Z"/>
+</svg>
+</svg>

@@ -1,0 +1,7 @@
+[Unit]
+Description=Автоотчёт Kvorix каждые 3 часа
+[Timer]
+OnCalendar=*-*-* 00/3:00:00
+Persistent=true
+[Install]
+WantedBy=timers.target

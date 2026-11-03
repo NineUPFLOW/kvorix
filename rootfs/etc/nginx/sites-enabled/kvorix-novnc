@@ -1,0 +1,5 @@
+server {
+    listen 6080;
+    root /usr/share/novnc;
+    include /etc/kvorix/novnc-nginx.inc;
+}

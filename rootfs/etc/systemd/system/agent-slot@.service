@@ -1,0 +1,15 @@
+[Unit]
+Description=Доступ ИИ-агентов: постоянный upterm-слот %i
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Environment=HOME=/root
+ExecStart=/usr/local/bin/agent-slot-v3.sh %i
+Restart=always
+RestartSec=15
+KillMode=control-group
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

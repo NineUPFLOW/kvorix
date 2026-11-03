@@ -1,0 +1,10 @@
+polkit.addRule(function(action, subject) {
+    if (subject.user == "agent" && (
+        action.id.indexOf("org.blueman.") === 0 ||
+        action.id.indexOf("org.bluez.") === 0 ||
+        action.id.indexOf("org.freedesktop.NetworkManager.") === 0 ||
+        action.id.indexOf("org.freedesktop.udisks2.") === 0
+    )) {
+        return polkit.Result.YES;
+    }
+});

@@ -1,0 +1,6 @@
+*.img
+*.img.xz
+*.img.gz
+*.sha256
+__pycache__/
+*.pyc

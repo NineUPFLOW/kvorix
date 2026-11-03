@@ -1,0 +1,7 @@
+[Unit]
+Description=Значки Kvorix для установленных программ
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kvorix-make-icons --quiet
+Nice=10

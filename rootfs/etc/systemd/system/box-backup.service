@@ -1,0 +1,5 @@
+[Unit]
+Description=Backup configs to /srv/share/backup
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/box-backup.sh

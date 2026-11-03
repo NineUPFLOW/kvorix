@@ -1,0 +1,41 @@
+#!/bin/bash
+export DISPLAY=:0 XAUTHORITY=/home/agent/.Xauthority
+STAMP=/var/lib/kvorix/mode-heal.stamp
+BID=/var/lib/kvorix/mode-heal.boot
+LOG=/var/lib/kvorix/mode-heal.log
+mkdir -p /var/lib/kvorix
+NEW=$(dmesg 2>/dev/null | grep -c "User-defined mode not supported" || true)
+CUR_BOOT=$(cat /proc/sys/kernel/random/boot_id)
+if [ "$(cat "$BID" 2>/dev/null)" != "$CUR_BOOT" ]; then
+    echo "$CUR_BOOT" > "$BID"
+    LAST=0
+else
+    LAST=$(cat "$STAMP" 2>/dev/null || echo 0)
+fi
+echo "$NEW" > "$STAMP"
+[ "${NEW:-0}" -gt "${LAST:-0}" ] || exit 0
+T0=$(stat -c %Y "$LOG" 2>/dev/null || echo 0)
+NOW=$(date +%s)
+[ $((NOW - T0)) -lt 45 ] && exit 0
+
+XR=$(xrandr --query 2>/dev/null || true)
+OUT=$(printf '%s\n' "$XR" | awk '/ connected/{print $1; exit}')
+[ -n "$OUT" ] || OUT=HDMI-1
+BASE=$(printf '%s\n' "$XR" | awk -v o="$OUT" '$1==o{h=1;next} h&&/^[^ ]/{h=0} h&&/\+/{print $1; exit}')
+[ -n "$BASE" ] || BASE=$(printf '%s\n' "$XR" | awk -v o="$OUT" '$1==o{h=1;next} h&&/^[^ ]/{h=0} h&&/^\s+1360x768 /{print $1; exit}')
+[ -n "$BASE" ] || BASE=1360x768
+FIT=$(printf '%s\n' "$XR" | awk -v o="$OUT" '$1==o{h=1;next} h&&/^[^ ]/{h=0} h&&/_fit_/{print $1; exit}')
+
+xrandr --output "$OUT" --mode "$BASE" 2>/dev/null || true
+sleep 1
+[ -n "$FIT" ] && xrandr --output "$OUT" --mode "$FIT" 2>/dev/null || true
+
+if pgrep -x xfdesktop >/dev/null 2>&1; then
+    E="env DISPLAY=:0 XAUTHORITY=/home/agent/.Xauthority DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus XDG_RUNTIME_DIR=/run/user/1001"
+    P="/backdrop/screen0/monitor${OUT}/workspace0/image-style"
+    sudo -u agent $E xfconf-query -c xfce4-desktop -p "$P" -s 4 2>/dev/null || true
+    sleep 1
+    sudo -u agent $E xfconf-query -c xfce4-desktop -p "$P" -s 5 2>/dev/null || true
+fi
+echo "$(date -Is) отклонение режима ядром (всего $NEW) — восстановлено ($OUT): base=$BASE fit=$FIT + перерисовка фона" >> "$LOG"
+exit 0

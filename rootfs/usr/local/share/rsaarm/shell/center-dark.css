@@ -1,0 +1,205 @@
+
+
+@define-color bg        #171a22;
+@define-color side      #1d212b;
+@define-color card      #222733;
+@define-color border    #323848;
+@define-color text      #e8eaf2;
+@define-color dim       #9aa1b2;
+@define-color accent    #2f7cf6;
+@define-color accent2   #2563eb;
+@define-color green     #34d399;
+@define-color orange    #fbbf24;
+@define-color red       #f87171;
+
+* {
+    outline-style: none;
+    outline-width: 0;
+}
+
+window, .background {
+    background-color: @bg;
+    color: @text;
+    font-family: "Inter", "Noto Sans", "DejaVu Sans", sans-serif;
+    font-size: 14px;
+}
+
+
+headerbar {
+    background-image: none;
+    background-color: #222733;
+    border-bottom: 1px solid @border;
+    color: @text;
+    min-height: 46px;
+    padding: 0 8px;
+}
+headerbar .title { font-weight: 600; color: @text; }
+headerbar button {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: @accent2;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-weight: 600;
+}
+headerbar button:hover { background-color: #e8f0fe; }
+
+.header-title { font-size: 16px; font-weight: 600; }
+.header-sub   { font-size: 11px; color: @dim; }
+
+
+.sidebar {
+    background-color: @side;
+    border-right: 1px solid @border;
+}
+.sidebar list { background-color: transparent; }
+.sidebar row {
+    padding: 6px 14px;
+    border-radius: 10px;
+    margin: 1px 10px;
+    color: @dim;
+}
+.sidebar row:hover { background-color: #f1f3f4; color: @text; }
+.sidebar row:selected {
+    background-color: #e8f0fe;
+    color: @accent2;
+    font-weight: 600;
+}
+.sidebar image { color: @accent; }
+.brand { font-size: 22px; font-weight: 800; color: @accent; padding: 12px 16px 0 16px; letter-spacing: 2px; }
+.brand-sub { font-size: 11px; color: @dim; padding: 0 16px 8px 16px; }
+.nav-section {
+    font-size: 11px;
+    font-weight: 700;
+    color: #80868b;
+    letter-spacing: 1px;
+    padding: 0;
+}
+
+
+.page-title { font-size: 22px; font-weight: 600; }
+.page-sub   { font-size: 13px; color: @dim; }
+
+.card {
+    background-color: @card;
+    border: 1px solid @border;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+.card-title { font-size: 14px; font-weight: 700; color: @text; }
+.row { padding: 7px 0; }
+.row-label { font-size: 14px; color: @text; }
+.value { color: @accent2; font-weight: 600; }
+.muted { font-size: 12px; color: @dim; }
+.hline { background-color: @border; min-height: 1px; margin: 6px 0; }
+
+
+button.btn {
+    background-image: none;
+    background-color: #222733;
+    border: 1px solid @border;
+    color: @accent2;
+    border-radius: 8px;
+    padding: 7px 16px;
+    font-weight: 600;
+}
+button.btn:hover { background-color: #f8f9fa; border-color: #bdc1c6; }
+button.btn:active { background-color: #e8f0fe; }
+button.btn:disabled { opacity: 0.4; }
+
+button.danger {
+    background-color: #222733;
+    border: 1px solid #f3c3bf;
+    color: @red;
+}
+button.danger:hover { background-color: #fce8e6; }
+
+button.ghost {
+    background-color: transparent;
+    border: 1px solid transparent;
+    color: @dim;
+}
+button.ghost:hover { color: @accent2; background-color: #f1f3f4; }
+
+
+.pill {
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 700;
+}
+.pill-ok   { background-color: #e6f4ea; color: @green; }
+.pill-warn { background-color: #fef7e0; color: @orange; }
+.pill-bad  { background-color: #fce8e6; color: @red; }
+.pill-info { background-color: #e8f0fe; color: @accent2; }
+
+
+switch {
+    background-color: #ced4da;
+    border-radius: 999px;
+    border: none;
+}
+switch:checked { background-color: @accent; }
+switch slider { background-color: #222733; border-radius: 999px; }
+
+scale trough { background-color: #dadce0; border-radius: 999px; min-height: 8px; }
+scale highlight { background-color: @accent; border-radius: 999px; }
+scale slider { background-color: @accent; border-radius: 999px; min-width: 16px; min-height: 16px; }
+
+entry {
+    background-color: #222733;
+    border: 1px solid @border;
+    border-radius: 8px;
+    color: @text;
+    padding: 6px 10px;
+}
+entry:focus { border-color: @accent; }
+
+combobox button {
+    background-image: none;
+    background-color: #222733;
+    border: 1px solid @border;
+    border-radius: 8px;
+    color: @text;
+    padding: 5px 10px;
+}
+combobox button:hover { border-color: @accent; }
+
+progressbar trough { background-color: #dadce0; border-radius: 999px; min-height: 8px; }
+progressbar progress { background-color: @accent; border-radius: 999px; min-height: 8px; }
+
+treeview { background-color: transparent; color: @text; }
+treeview:selected { background-color: #e8f0fe; color: @text; }
+treeview header button {
+    background-image: none;
+    background-color: transparent;
+    border: none;
+    color: @dim;
+    font-weight: 600;
+}
+
+scrollbar slider {
+    background-color: #c4c7cb;
+    border-radius: 999px;
+    min-width: 7px;
+    min-height: 30px;
+}
+scrollbar slider:hover { background-color: @accent; }
+scrollbar trough { background-color: transparent; }
+
+
+.tile {
+    background-color: #f8f9fa;
+    border: 1px solid @border;
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+.tile-title { font-weight: 600; color: @text; }
+.tile-path { font-size: 11px; color: @dim; font-family: "DejaVu Sans Mono", monospace; }
+
+.dash-big { font-size: 30px; font-weight: 700; color: @text; }
+.dash-label { font-size: 11px; color: @dim; }
+
+.dialog, dialog { background-color: #222733; color: @text; }
+tooltip { background-color: #202124; color: #ffffff; border-radius: 6px; }

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Автозагрузка
+Comment=Что запускается вместе с системой: включить, выключить, добавить
+Exec=armbian-autostart
+Icon=preferences-system-session
+Terminal=false
+Categories=Settings;System;
+X-XFCE-Source=file:///usr/share/applications/armbian-autostart.desktop

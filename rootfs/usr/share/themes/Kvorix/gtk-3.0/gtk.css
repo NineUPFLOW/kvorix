@@ -1,0 +1,79 @@
+@import url("resource:///org/gnome/arc-theme/gtk-main-lighter.css");
+/* Armbian Fluent — тема GTK3 рабочего стола Armbian (поверх Arc-Lighter) */
+
+@define-color theme_selected_bg_color #2f7cf6;
+@define-color theme_selected_fg_color #ffffff;
+@define-color selected_bg_color #2f7cf6;
+@define-color accent_color #2f7cf6;
+@define-color theme_bg_color #f3f5f9;
+@define-color theme_base_color #ffffff;
+@define-color theme_fg_color #1c2130;
+@define-color borders rgba(15,20,35,0.12);
+
+* { outline-color: alpha(#2f7cf6, 0.5); }
+window.background { background-color: #f3f5f9; color: #1c2130; }
+
+headerbar, .titlebar {
+    background: #f3f5f9; border-bottom: 1px solid rgba(15,20,35,0.08);
+    box-shadow: none; min-height: 40px;
+}
+button {
+    border-radius: 8px; padding: 5px 12px; min-height: 22px;
+    transition: background 120ms ease, box-shadow 120ms ease;
+}
+button.suggested-action { background: #2f7cf6; color: #fff; border-color: #2a6fde; }
+button.suggested-action:hover { background: #4189f7; }
+entry {
+    border-radius: 8px; min-height: 30px; padding: 0 10px;
+    border: 1px solid rgba(15,20,35,0.14); border-bottom: 2px solid rgba(15,20,35,0.22);
+}
+entry:focus { border-color: rgba(15,20,35,0.14); border-bottom-color: #2f7cf6; box-shadow: none; }
+check { border-radius: 5px; }
+radio { border-radius: 50%; }
+check:checked, radio:checked { background: #2f7cf6; border-color: #2f7cf6; color: #fff; }
+switch { border-radius: 999px; }
+switch:checked { background: #2f7cf6; border-color: #2f7cf6; }
+switch slider { border-radius: 50%; }
+scale highlight { background: #2f7cf6; border-radius: 3px; }
+scale trough { border-radius: 3px; min-height: 4px; }
+scale slider { border-radius: 50%; background: #fff; border: 2px solid #2f7cf6; }
+progressbar progress { background: #2f7cf6; border-radius: 3px; }
+progressbar trough { border-radius: 3px; }
+
+menu, .menu, .context-menu {
+    border-radius: 10px; padding: 5px; background: #fbfcfe;
+    border: 1px solid rgba(15,20,35,0.12);
+}
+menu menuitem, .menu menuitem { border-radius: 6px; padding: 6px 12px; min-height: 18px; }
+menu menuitem:hover, .menu menuitem:hover { background: rgba(47,124,246,0.12); color: #1c2130; }
+popover, popover.background { border-radius: 12px; }
+tooltip, tooltip.background {
+    border-radius: 8px; background: rgba(28,33,48,0.94); color: #fff; padding: 4px 8px;
+}
+
+/* списки, боковые панели, вкладки */
+placessidebar, .sidebar { background: #eef1f6; }
+placessidebar row, .sidebar row { border-radius: 8px; margin: 1px 6px; min-height: 30px; }
+placessidebar row:selected, .sidebar row:selected { background: rgba(47,124,246,0.15); color: #1c2130; }
+row:selected, treeview:selected, iconview:selected, .view:selected, flowboxchild:selected {
+    background: rgba(47,124,246,0.18); color: #1c2130; border-radius: 6px;
+}
+notebook > header { background: #f3f5f9; border: none; }
+notebook > header tab { border-radius: 8px 8px 0 0; padding: 6px 14px; }
+notebook > header tab:checked { box-shadow: inset 0 -2px #2f7cf6; }
+
+scrollbar { background: transparent; border: none; }
+scrollbar slider {
+    min-width: 6px; min-height: 6px; border-radius: 999px;
+    background: rgba(15,20,35,0.25); border: 3px solid transparent;
+}
+scrollbar slider:hover { background: rgba(15,20,35,0.45); }
+
+menubar { padding: 0 4px; }
+menubar > menuitem { padding: 4px 10px; border-radius: 6px; }
+menubar > menuitem:hover { background: rgba(47,124,246,0.12); color: #1c2130; box-shadow: none; }
+
+/* kvorix-outline: без композитора у окон нет теней — тонкая обводка, чтобы окна не сливались (как в Windows 11) */
+window.csd decoration, window.solid-csd decoration { border: 1px solid #8a96aa; box-shadow: none; border-radius: 0; margin: 0; }
+window.csd decoration:backdrop, window.solid-csd decoration:backdrop { border-color: #c9cdd5; }
+window.solid-csd { padding: 0; }

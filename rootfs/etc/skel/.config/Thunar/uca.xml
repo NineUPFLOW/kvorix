@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+<action>
+	<icon>utilities-terminal</icon>
+	<name>Открыть в Терминале</name>
+	<submenu></submenu>
+	<unique-id>1730500001-1</unique-id>
+	<command>xfce4-terminal --working-directory=%f</command>
+	<description>Открыть командную строку в текущей папке</description>
+	<range></range>
+	<patterns>*</patterns>
+	<startup-notify/>
+	<directories/>
+</action>
+<action>
+	<icon>preferences-desktop-wallpaper</icon>
+	<name>Сделать фоном рабочего стола</name>
+	<submenu></submenu>
+	<unique-id>1730500002-2</unique-id>
+	<command>sh -c 'for k in $(xfconf-query -c xfce4-desktop -l | grep last-image$); do xfconf-query -c xfce4-desktop -p "$k" -s "%f"; done'</command>
+	<description>Установить выбранное изображение как обои</description>
+	<range>*</range>
+	<patterns>*.png;*.jpg;*.jpeg;*.webp</patterns>
+	<image-files/>
+</action>
+<action>
+	<icon>drive-harddisk</icon>
+	<name>Управление хранилищем и очистка</name>
+	<submenu></submenu>
+	<unique-id>1730500003-3</unique-id>
+	<command>kvorix-disks</command>
+	<description>Открыть анализатор места и дисков</description>
+	<range></range>
+	<patterns>*</patterns>
+	<directories/>
+</action>
+</actions>

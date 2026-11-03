@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+
+import argparse
+import ast
+import json
+import os
+import pwd
+import pathlib
+import shutil
+import stat
+import subprocess
+import sys
+import time
+
+VAULT = pathlib.Path('/var/backups/kvorix-config-private')
+VAULT_LIMIT = 512 * 1024**2
+VAULT_SCAN = r'''
+import json, os, stat
+b = "/var/backups/kvorix-config-private"
+rows = []
+for n in sorted(os.listdir(b)):
+    s = os.lstat(os.path.join(b, n))
+    rows.append(dict(name=n, size=s.st_size, mtime=s.st_mtime,
+                     mode=stat.S_IMODE(s.st_mode), uid=s.st_uid, gid=s.st_gid,
+                     link=stat.S_ISLNK(s.st_mode), dir=stat.S_ISDIR(s.st_mode)))
+print(json.dumps(rows))
+'''
+
+def vault_rows():
+    
+    args = ['python3', '-c', VAULT_SCAN] if os.geteuid() == 0 else ['sudo', '-n', 'python3', '-c', VAULT_SCAN]
+    r = subprocess.run(args, capture_output=True, text=True, timeout=8)
+    if r.returncode:
+        raise RuntimeError((r.stderr or r.stdout).strip()[:200] or 'vault scan failed')
+    return json.loads(r.stdout)
+
+def vault_directory_check(path):
+    
+    try:
+        st = os.lstat(path)
+    except OSError as e:
+        return 'snapshot vault private', 'WARN', 'not created yet: ' + str(e)
+    mode = stat.S_IMODE(st.st_mode)
+    ok = (stat.S_ISDIR(st.st_mode) and mode == 0o700 and st.st_uid == 0 and st.st_gid == 0)
+    return ('snapshot vault private', 'PASS' if ok else 'FAIL',
+            f'mode={mode:04o} owner={st.st_uid}:{st.st_gid}')
+
+def vault_assessment(rows):
+    
+    archives = [x for x in rows if x['name'].startswith('config-') and x['name'].endswith('.tar.gz')]
+    manifests = [x for x in rows if x['name'].startswith('config-') and x['name'].endswith('.tar.gz.json')]
+    files = [x for x in rows if not x.get('dir')]
+    bad = [x['name'] for x in files
+           if x['mode'] != 0o600 or x['uid'] != 0 or x['gid'] != 0 or x['link']]
+    checks = [('snapshot archive permissions', 'FAIL' if bad else 'PASS',
+               f'root:root 0600, no symlinks ({len(files)} files)' if not bad
+               else 'unsafe: ' + ', '.join(bad[:4]))]
+    names_a = {x['name'] for x in archives}
+    names_m = {x['name'][:-5] for x in manifests}
+    unpaired = sorted(names_a ^ names_m)
+    checks.append(('snapshot manifest pairs', 'FAIL' if unpaired else 'PASS',
+                   f'{len(archives)} archives, {len(manifests)} manifests' if not unpaired
+                   else 'unpaired: ' + ', '.join(unpaired[:4])))
+    if archives:
+        age = max(0.0, time.time() - max(x['mtime'] for x in archives)) / 86400
+        state = 'PASS' if age <= 10 else ('WARN' if age <= 21 else 'FAIL')
+        checks.append(('snapshot freshness', state,
+                       f'newest {age:.1f} d old (weekly timer, warn 10 d, fail 21 d)'))
+    else:
+        checks.append(('snapshot freshness', 'WARN', 'no snapshots yet'))
+    used = sum(x['size'] for x in rows if not x['link'])
+    state = 'PASS' if used <= VAULT_LIMIT * 0.8 else ('WARN' if used <= VAULT_LIMIT else 'FAIL')
+    checks.append(('snapshot storage usage', state,
+                   f'{used / 1024**2:.0f} MiB of {VAULT_LIMIT // 1024**2} MiB cap'))
+    return checks
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--json', action='store_true', help='machine-readable report')
+    a = p.parse_args(argv)
+    results = []
+    def add(name, state, detail=''):
+        results.append(dict(check=name, status=state, detail=detail))
+    def command(name, args):
+        try:
+            r = subprocess.run(args, capture_output=True, text=True, timeout=8)
+            add(name, 'PASS' if r.returncode == 0 else 'FAIL', (r.stdout + r.stderr).strip()[:1500])
+        except (OSError, subprocess.TimeoutExpired) as e:
+            add(name, 'FAIL', str(e))
+    for scope in ('system', 'session'):
+        args = ['systemctl']
+        if scope == 'session':
+            args.append('--user')
+            if os.geteuid() == 0:
+                try:
+                    pw = pwd.getpwnam('agent')
+                    args = ['sudo', '-n', '-u', pw.pw_name, 'env',
+                            'XDG_RUNTIME_DIR=/run/user/%d' % pw.pw_uid,
+                            'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%d/bus' % pw.pw_uid,
+                            'systemctl', '--user']
+                except KeyError:
+                    pass
+        args += ['--failed', '--no-legend', '--plain', '--no-pager']
+        try:
+            r = subprocess.run(args, capture_output=True, text=True, timeout=8)
+            add(scope + ' failed units', 'PASS' if r.returncode == 0 and not r.stdout.strip() else 'FAIL',
+                (r.stdout + r.stderr).strip())
+        except (OSError, subprocess.TimeoutExpired) as e:
+            add(scope + ' failed units', 'FAIL', str(e))
+    for timer in ['kvorix-config-snapshot.timer', 'kvorix-mode-heal.timer', 'box-backup.timer']:
+        command('timer ' + timer, ['systemctl', 'is-active', '--quiet', timer])
+    for service in ['NetworkManager', 'lightdm', 'ssh', 'front-panel']:
+        command('service ' + service, ['systemctl', 'is-active', '--quiet', service])
+    try:
+        r = subprocess.run(['findmnt', '--noheadings', '--output', 'OPTIONS', '/'],
+                           capture_output=True, text=True, timeout=8)
+        opts = r.stdout.strip().split(',')
+        add('root filesystem writable', 'PASS' if r.returncode == 0 and 'rw' in opts and 'ro' not in opts else 'FAIL',
+            r.stdout.strip())
+    except (OSError, subprocess.TimeoutExpired) as e:
+        add('root filesystem writable', 'FAIL', str(e))
+    for field in ['pre_eol_info', 'life_time']:
+        path = pathlib.Path('/sys/block/mmcblk2/device') / field
+        try:
+            raw = path.read_text().strip()
+            values = [int(v, 16) for v in raw.split()]
+            if field == 'pre_eol_info':
+                state = 'PASS' if values == [1] else 'WARN'
+                detail = {1: 'normal', 2: 'warning: reserve blocks low',
+                          3: 'urgent: reserve blocks critical'}.get(values[0], 'unknown')
+            else:
+                state = 'WARN' if any(v >= 9 for v in values) else 'PASS'
+                detail = raw + ' (device wear buckets, not a remaining-life prediction)'
+                if not values or any(v == 0 for v in values):
+                    state = 'WARN'
+            add('eMMC ' + field, state, detail)
+        except (OSError, ValueError, IndexError) as e:
+            add('eMMC ' + field, 'WARN', 'unavailable: ' + str(e))
+    u = shutil.disk_usage('/')
+    add('root disk free', 'PASS' if u.free > 1024**3 else 'WARN', f'{u.free / 1024**3:.2f} GiB free')
+    try:
+        m = dict((l.split(':')[0], int(l.split()[1])) for l in pathlib.Path('/proc/meminfo').read_text().splitlines() if ':' in l)
+        add('available memory', 'PASS' if m['MemAvailable'] > 150*1024 else 'WARN',
+            f"{m['MemAvailable']//1024} MiB available")
+    except (OSError, ValueError, KeyError) as e:
+        add('available memory', 'FAIL', str(e))
+    command('clock synchronized', ['timedatectl', 'show', '--value', '--property=NTPSynchronized'])
+    if results[-1]['status'] == 'PASS' and results[-1]['detail'] != 'yes':
+        results[-1]['status'] = 'WARN'
+    try:
+        temp = int(pathlib.Path('/sys/class/thermal/thermal_zone0/temp').read_text()) / 1000
+        add('CPU temperature', 'PASS' if temp < 80 else 'WARN', f'{temp:.1f} C')
+    except (OSError, ValueError) as e:
+        add('CPU temperature', 'WARN', str(e))
+    name, state, detail = vault_directory_check(VAULT)
+    add(name, state, detail)
+    try:
+        rows = vault_rows()
+    except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as e:
+        add('snapshot inventory readable', 'WARN', 'root-only vault, scan unavailable: ' + str(e))
+    else:
+        add('snapshot inventory readable', 'PASS', f'{len(rows)} entries')
+        for name, state, detail in vault_assessment(rows):
+            add(name, state, detail)
+    paths = set()
+    for root in ['/usr/local/share/armbian-gui', '/usr/local/share/rsaarm/shell', '/usr/local/lib/front-panel']:
+        found = list(pathlib.Path(root).glob('*.py'))
+        if not found:
+            add('Python sources ' + root, 'FAIL', 'no source files found')
+        paths.update(str(p) for p in found)
+    paths.update(['/usr/local/bin/kvorix-health-check',
+                  '/usr/local/sbin/kvorix-config-snapshot',
+                  '/usr/local/sbin/kvorix-config-verify'])
+    for path in sorted(paths):
+        try:
+            ast.parse(pathlib.Path(path).read_text(encoding='utf-8'), filename=path)
+            add('syntax ' + path, 'PASS')
+        except (OSError, SyntaxError, UnicodeError) as e:
+            add('syntax ' + path, 'FAIL', str(e))
+    command('X display', ['env', 'DISPLAY=:0', 'XAUTHORITY=/home/agent/.Xauthority', 'xdpyinfo'])
+    if results[-1]['status'] == 'PASS':
+        results[-1]['detail'] = 'display responds'
+    summary = {k: sum(r['status'] == k for r in results) for k in ['PASS', 'WARN', 'FAIL']}
+    if a.json:
+        print(json.dumps(dict(summary=summary, checks=results), ensure_ascii=False, indent=2))
+    else:
+        for r in results:
+            print(f"{r['status']:4}  {r['check']}" + (f" — {r['detail']}" if r['detail'] else ''))
+        print('Summary: ' + ', '.join(f'{k}={v}' for k, v in summary.items()))
+    sys.exit(1 if summary['FAIL'] else 0)
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Настройки (прогрев)
+Exec=sh -c "sleep 20; pgrep -f 'center.py' >/dev/null || exec python3 /usr/local/share/armbian-gui/center.py --prewarm"
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

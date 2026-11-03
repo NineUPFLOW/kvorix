@@ -1,0 +1,22 @@
+name: lint
+on: [push, pull_request]
+permissions: {contents: read}
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python — синтаксис
+        run: |
+          set -e
+          grep -rlIE '^#!.*python' rootfs install.sh | while read -r f; do python3 -m py_compile "$f"; done
+          find rootfs -name '*.py' -print0 | xargs -0 -r -n1 python3 -m py_compile
+      - name: Shell — синтаксис и ошибки
+        run: |
+          set -e
+          grep -rlIE '^#!.*(ba)?sh' rootfs install.sh | while read -r f; do bash -n "$f"; done
+          grep -rlIE '^#!.*bash' rootfs install.sh | xargs -r shellcheck -S error
+      - name: Нет секретов
+        run: |
+          ! grep -rIEn 'BEGIN [A-Z ]*PRIVATE KEY|tskey-|psk=' rootfs install.sh
+          for f in rootfs/etc/kvorix/ai.conf rootfs/etc/kvorix/novnc.token rootfs/etc/kvorix/vnc.pass rootfs/etc/kvorix/vnc.pass.txt; do test ! -e "$f"; done

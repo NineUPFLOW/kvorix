@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Автоподключение носителей
+Comment=Флешки, диски и телефоны подключаются и открываются сами
+Exec=udiskie --automount --notify --no-tray --file-manager thunar
+NoDisplay=true

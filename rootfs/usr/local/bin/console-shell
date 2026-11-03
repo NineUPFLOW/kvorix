@@ -1,0 +1,7 @@
+#!/bin/bash
+sleep 2.5
+export COLUMNS=$(tput cols 2>/dev/null || echo 100)
+export LINES=$(tput lines 2>/dev/null || echo 30)
+clear
+[ -t 1 ] && /usr/bin/python3 /usr/local/bin/console-info.py
+exec /bin/bash -i

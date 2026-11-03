@@ -1,0 +1,4 @@
+#!/bin/bash
+export PYTHONPATH=/usr/local/share/armbian-gui
+export LANG=ru_RU.UTF-8
+exec python3 /usr/local/share/armbian-gui/center.py "$@"

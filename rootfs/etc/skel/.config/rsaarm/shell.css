@@ -1,0 +1,379 @@
+
+@define-color accent #5a9bff;
+@define-color accent_soft rgba(90, 155, 255, 0.16);
+@define-color fg #e8eaf2;
+@define-color fg_dim #9aa1b2;
+
+
+.rsaarm-bar {
+    background-color: rgba(21, 24, 33, 0.78);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: @fg;
+    font: 11px "Inter";
+}
+.rsaarm-logo label {
+    font: bold 12.5px "Inter";
+    color: @accent;
+    letter-spacing: 1px;
+}
+.bar-btn {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 4px 7px;
+    color: @fg;
+    transition: 130ms ease;
+}
+.bar-btn:hover {
+    background: rgba(255, 255, 255, 0.10);
+}
+.clock {
+    font: bold 11.5px "Inter";
+    color: @fg;
+    letter-spacing: 0.3px;
+}
+
+
+popover.background {
+    background-color: rgba(30, 34, 45, 0.98);
+    border-radius: 14px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+    color: @fg;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.pop-btn {
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    padding: 7px 10px;
+    color: @fg;
+    font: 11px "Inter";
+    transition: 120ms ease;
+}
+.pop-btn:hover {
+    background: @accent_soft;
+    color: @accent;
+}
+.pop-btn:checked {
+    background: @accent;
+    color: #10131c;
+}
+
+
+.rsaarm-dock {
+    background-color: rgba(26, 30, 41, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 22px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+    color: @fg;
+}
+.dock-btn {
+    background: transparent;
+    border: none;
+    border-radius: 17px;
+    padding: 5px 7px 2px 7px;
+    color: @fg;
+    transition: 140ms ease;
+}
+.dock-btn:hover {
+    background: @accent_soft;
+    -gtk-icon-transform: scale(1.15);
+}
+.dock-btn .dot {
+    font: 8px "Inter";
+    color: transparent;
+}
+.dock-btn.running .dot {
+    color: @accent;
+}
+.dock-btn.minimized .dot {
+    color: @fg_dim;
+}
+.dock-btn.running {
+    background: rgba(90, 155, 255, 0.10);
+}
+
+
+.menu-scrim {
+    background-color: rgba(8, 10, 16, 0.52);
+}
+.menu-card {
+    background-color: rgba(28, 32, 43, 0.97);
+    border-radius: 24px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    color: @fg;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.menu-search {
+    border-radius: 13px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 8px 12px;
+    font: 13px "Inter";
+    background: rgba(255, 255, 255, 0.06);
+    color: @fg;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.menu-search:focus {
+    border-color: @accent;
+    box-shadow: 0 0 0 3px rgba(90, 155, 255, 0.22);
+}
+.chip {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    padding: 4px 12px;
+    background: transparent;
+    color: @fg_dim;
+    font: 10.5px "Inter";
+    transition: 120ms ease;
+}
+.chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: @fg;
+}
+.chip:checked {
+    background: @accent;
+    border-color: @accent;
+    color: #10131c;
+}
+.menu-scroll, .menu-scroll viewport {
+    background: transparent;
+}
+.menu-scroll scrollbar slider {
+    min-width: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.16);
+}
+.app-btn {
+    background: transparent;
+    border: none;
+    border-radius: 15px;
+    padding: 10px 8px;
+    color: @fg;
+    transition: 120ms ease;
+}
+.app-btn:hover {
+    background: @accent_soft;
+}
+.app-btn label {
+    font: 10.5px "Inter";
+    color: @fg;
+}
+
+
+.rsaarm-taskbar {
+    background-color: rgba(22, 25, 34, 0.84);
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+    color: #e8eaf2;
+    font: 11px "Inter";
+}
+.tb-btn {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 5px 7px 3px 7px;
+    color: #e8eaf2;
+    transition: 130ms ease;
+}
+.tb-btn:hover { background: rgba(255, 255, 255, 0.10); }
+.tb-btn:active { background: rgba(90, 155, 255, 0.20); }
+.tb-start:hover { background: rgba(90, 155, 255, 0.18); }
+.tb-search {
+    background: rgba(255, 255, 255, 0.07);
+    border: none;
+    border-radius: 999px;
+    padding: 9px 18px;
+    color: #9aa1b2;
+    font: 11px "Inter";
+    transition: 130ms ease;
+}
+.tb-search:hover { background: rgba(255, 255, 255, 0.12); }
+.tb-search-label { color: #9aa1b2; }
+.tb-clock label { font: 11px "Inter"; }
+.tb-ind {
+    min-width: 16px;
+    min-height: 3px;
+    border-radius: 2px;
+    background: transparent;
+    transition: 150ms ease;
+}
+.tb-btn.running .tb-ind { background: rgba(90, 155, 255, 0.8); }
+.tb-btn.active-app .tb-ind { min-width: 22px; background: #5a9bff; }
+.tb-btn.minimized image { opacity: 0.55; }
+
+
+.qs { font: 11px "Inter"; }
+.qs-cap { font: bold 10px "Inter"; color: #9aa1b2; }
+.qs-tile {
+    background: rgba(255, 255, 255, 0.06);
+    border: none;
+    border-radius: 12px;
+    color: #e8eaf2;
+    transition: 130ms ease;
+}
+.qs-tile:hover { background: rgba(255, 255, 255, 0.11); }
+.qs-tile:checked { background: #5a9bff; color: #10131c; }
+.qs-tile:checked .qs-tile-label { color: #10131c; }
+.qs-tile-label { font: 10px "Inter"; }
+.rsaarm-cal { opacity: 1; }
+
+
+.sm-shadow { background: transparent; }
+.sm {
+    background-color: rgba(28, 32, 43, 0.97);
+    border-radius: 16px;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #e8eaf2;
+    font: 11px "Inter";
+}
+.sm-search {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 8px 14px;
+    font: 12px "Inter";
+    background: rgba(255, 255, 255, 0.07);
+    color: #e8eaf2;
+}
+.sm-search:focus {
+    border-color: #5a9bff;
+    box-shadow: 0 0 0 3px rgba(90, 155, 255, 0.22);
+}
+.sm-h { font: bold 11.5px "Inter"; color: #e8eaf2; }
+.sm-app {
+    background: transparent;
+    border: none;
+    border-radius: 11px;
+    padding: 9px 6px;
+    color: #e8eaf2;
+    transition: 110ms ease;
+}
+.sm-app:hover { background: rgba(90, 155, 255, 0.16); }
+.sm-app-label { font: 10px "Inter"; color: #e8eaf2; }
+.sm-link {
+    background: transparent;
+    border: none;
+    color: #5a9bff;
+    font: 11px "Inter";
+    padding: 3px 6px;
+    border-radius: 7px;
+}
+.sm-link:hover { background: rgba(90, 155, 255, 0.12); }
+.sm-rec {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 6px 8px;
+    color: #e8eaf2;
+    font: 11px "Inter";
+}
+.sm-rec:hover { background: rgba(90, 155, 255, 0.13); }
+.sm-rec:hover label { color: #5a9bff; }
+.sm-avatar {
+    font: bold 13px "Inter";
+    color: #10131c;
+    background: #5a9bff;
+    border-radius: 999px;
+    padding: 7px 10px;
+}
+.sm-user { font: bold 11px "Inter"; }
+.sm-footer { padding-top: 8px; }
+.sm-foot-btn {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 7px 9px;
+    color: #e8eaf2;
+    transition: 120ms ease;
+}
+.sm-foot-btn:hover { background: rgba(90, 155, 255, 0.15); color: #5a9bff; }
+.sm-dim { font: 10.5px "Inter"; color: #9aa1b2; }
+.sm-scroll, .sm-scroll viewport { background: transparent; }
+.sm-scroll scrollbar slider {
+    min-width: 5px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+
+.rsaarm-taskbar {
+    background-color: rgba(20, 23, 31, 0.96);
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+.popover, .popover.background {
+    background-color: rgb(32, 36, 47);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 14px;
+}
+.qs {
+    background-color: rgb(32, 36, 47);
+}
+.qs-cap { color: #c3c9d6; }
+.pop-btn {
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 9px;
+    color: #e8eaf2;
+    font: bold 11px "Inter";
+    padding: 7px 10px;
+    transition: 120ms ease;
+}
+.pop-btn:hover { background: rgba(90, 155, 255, 0.20); }
+.pop-btn:checked {
+    background: #e5534b;
+    color: #ffffff;
+    border-color: #f2554a;
+}
+.qs scale trough {
+    min-height: 6px; border-radius: 3px;
+    background: rgba(255, 255, 255, 0.18);
+}
+.qs scale highlight { background: #5a9bff; border-radius: 3px; }
+.qs scale slider {
+    min-width: 18px; min-height: 18px; border-radius: 50%;
+    background: #e8eaf2; border: 2px solid #5a9bff; margin: -7px;
+}
+.qs-tile {
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.qs-tile-label { color: #e8eaf2; font-weight: bold; }
+.sm {
+    background-color: rgba(30, 34, 44, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.tb-search {
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.tb-search-label { color: #c3c9d6; }
+.rsaarm-cal {
+    background-color: rgb(32, 36, 47);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+}
+
+
+.qs-pop {
+    background-color: #1e222d;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    padding: 6px;
+}
+.sm { background-color: #1e222d; border-radius: 0; border: none; box-shadow: none; padding: 18px 20px 12px 20px; }
+.tb-btn.active-app { background: rgba(90, 155, 255, 0.16); }
+.tb-btn.running:not(.active-app) .tb-ind { min-width: 6px; margin-left: 5px; margin-right: 5px; }
+.tb-lang { min-width: 32px; padding: 3px 4px; }
+.tb-lang label { font: bold 10.5px "Inter"; letter-spacing: 0.4px; color: #d8deec; }
+.tb-tray { min-width: 48px; padding: 3px 6px; }
+.tb-clock { min-width: 58px; padding: 2px 5px; }
+.tb-pw { min-width: 30px; padding: 3px 4px; }
+.tb-showdesk { background: transparent; border: none; border-left: 1px solid rgba(255, 255, 255, 0.16); border-radius: 0; padding: 0; min-width: 5px; }
+.tb-showdesk:hover { background: rgba(90, 155, 255, 0.40); }
+.qs-info { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 10px; padding: 7px 10px; }
+.qs-foot { border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 8px; }
+.cal-hero-time { font: bold 24px "Inter"; color: #e8eaf2; }
+.cal-hero-date { font: 11.5px "Inter"; color: #9aa1b2; }
+.sm-rec-sub { font: 9.5px "Inter"; color: #9aa1b2; }
+.sm-footer { border-top: 1px solid rgba(255, 255, 255, 0.10); padding-top: 10px; margin-top: 2px; }
+
+.rsaarm-taskbar { background-color: rgba(16, 18, 26, 1.0); }

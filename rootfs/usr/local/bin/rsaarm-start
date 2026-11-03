@@ -1,0 +1,3 @@
+#!/bin/sh
+P=$(cat /tmp/rsaarm-menu-$(id -u).pid 2>/dev/null)
+if [ -n "$P" ] && [ "$(cat /proc/$P/comm 2>/dev/null)" = python3 ]; then kill -USR1 "$P"; else RSAARM_THEME=$(cat "$HOME/.config/rsaarm/theme" 2>/dev/null || echo light) exec python3 /usr/local/share/rsaarm/shell/rsaarm-menu.py "$@"; fi

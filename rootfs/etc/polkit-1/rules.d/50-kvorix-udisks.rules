@@ -1,0 +1,3 @@
+polkit.addRule(function(action, subject) {
+  if (action.id.indexOf("org.freedesktop.udisks2.") == 0 && subject.local && subject.active) return polkit.Result.YES;
+});

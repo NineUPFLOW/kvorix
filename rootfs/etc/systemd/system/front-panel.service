@@ -1,0 +1,14 @@
+[Unit]
+Description=Передняя панель: индикатор 88:88 (FD6551)
+After=multi-user.target
+
+[Service]
+# драйвер openvfd занимает те же линии GPIO — индикатором управляем сами
+ExecStartPre=-/sbin/rmmod openvfd
+ExecStart=/usr/bin/python3 /usr/local/lib/front-panel/front-panel.py
+Restart=on-failure
+RestartSec=10
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Hidden=false
+Type=Application
+Name=Персонализация
+Exec=armbian-personalize --login
+NoDisplay=true
+X-GNOME-Autostart-Phase=Initialization

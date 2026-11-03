@@ -1,0 +1,19 @@
+[Icon Theme]
+Name=Kvorix-Icons-Dark
+Comment=Papirus с фирменными значками Armbian
+Inherits=Papirus-Dark,hicolor
+Directories=scalable/places,scalable/apps
+
+[scalable/places]
+Size=48
+MinSize=16
+MaxSize=256
+Type=Scalable
+Context=Places
+
+[scalable/apps]
+Size=64
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Applications

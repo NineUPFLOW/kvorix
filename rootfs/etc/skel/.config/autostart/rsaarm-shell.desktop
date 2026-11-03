@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RSAarm Shell
+Comment=Оболочка RSAarm: верхняя панель, док, композитор
+Exec=/usr/local/share/rsaarm/shell/rsaarm-shell.sh
+Icon=preferences-system
+Terminal=false
+X-GNOME-Autostart-enabled=true

@@ -1,0 +1,136 @@
+#!/bin/bash
+# Kvorix: собрать образ прошивки для SD/USB из работающей приставки — без личных данных.
+#   kvorix-build-image [базовый образ ophub .img.gz] [рабочая папка]
+# Берёт разметку и загрузочные скрипты SD из базового образа ophub, систему — с этой приставки,
+# затем вычищает всё личное (Wi-Fi, ключи, Tailscale, браузер, журналы, бэкапы, доступ ИИ).
+set -euo pipefail
+BASE=${1:-/home/agent/img/ar.img.gz}
+W=${2:-/var/tmp/kvx-build}
+IMG=$W/kvorix.img
+R=$W/root
+[ "$(id -u)" = 0 ] || { echo "нужен root"; exit 1; }
+[ -f "$BASE" ] || { echo "нет базового образа $BASE"; exit 1; }
+mkdir -p "$W"
+rm -f "$IMG"
+
+RULE=/run/udev/rules.d/99-kvorix-build.rules
+cleanup() {
+    set +e
+    rm -f "$RULE"; udevadm control --reload 2>/dev/null
+    umount "$R/boot" 2>/dev/null; umount "$R" 2>/dev/null
+    [ -n "${LOOP:-}" ] && losetup -d "$LOOP" 2>/dev/null
+}
+trap cleanup EXIT
+
+# что не берём с приставки (личное, временное, чужие образы)
+EXCL=(--exclude=/proc/ --exclude=/sys/ --exclude=/dev/ --exclude=/run/ --exclude=/tmp/ --exclude=/mnt/
+      --exclude=/media/ --exclude=/boot/ --exclude=/lost+found --exclude=/var/tmp/ --exclude=/swapfile
+      --exclude=/home/agent/img/ --exclude=/srv/share/ --exclude=/root/claude-backup-20261101/
+      --exclude=/var/cache/apt/ --exclude=/var/lib/apt/lists/ --exclude=/var/log/ --exclude=/var/backups/
+      --exclude=/home/agent/.cache/ --exclude=/home/agent/.config/chromium/ --exclude=/root/.cache/
+      --exclude=/var/lib/tailscale/ --exclude=/var/lib/bluetooth/ --exclude=/var/lib/NetworkManager/
+      --exclude=/etc/NetworkManager/system-connections/ --exclude=/home/agent/.upterm/ --exclude=/root/.upterm/
+      --exclude=/var/lib/systemd/coredump/ --exclude='__pycache__/')
+
+# 1. размер: система + 15 % + 400 МБ запаса (при первом запуске раздел растянется на весь носитель)
+USED=$(du -sxm / 2>/dev/null | awk '{print $1}')
+for d in /home/agent/img /srv/share /var/tmp /var/cache/apt /var/lib/apt/lists /var/log /var/backups /home/agent/.cache /home/agent/.config/chromium; do
+    [ -e "$d" ] && USED=$(( USED - $(du -sxm "$d" 2>/dev/null | awk '{print $1}') ))
+done
+ROOT_MB=$(( USED * 115 / 100 + 400 ))
+BOOT_END=$(( 1056768 ))                       # сектор начала раздела 2 в образе ophub
+TOTAL_MB=$(( BOOT_END * 512 / 1048576 + ROOT_MB ))
+FREE=$(df -m --output=avail "$W" | tail -1)
+[ "$FREE" -gt $(( USED + 500 )) ] || { echo "мало места: нужно ~${USED} МБ, свободно ${FREE} МБ"; exit 1; }
+echo "система ${USED} МБ → образ ${TOTAL_MB} МБ"
+
+# 2. разметка и загрузочный раздел — из базового образа ophub (там же скрипты загрузки с SD/USB)
+rm -f "$IMG"
+zcat "$BASE" | head -c $(( BOOT_END * 512 )) > "$IMG" || true
+[ "$(stat -c %s "$IMG")" = $(( BOOT_END * 512 )) ] || { echo "базовый образ повреждён"; exit 1; }
+truncate -s "${TOTAL_MB}M" "$IMG"
+echo "${BOOT_END},+,83" | sfdisk -q -N 2 "$IMG" >/dev/null  # «+» — до конца образа
+# рабочий стол не должен сам монтировать разделы образа
+mkdir -p /run/udev/rules.d; echo 'KERNEL=="loop*", ENV{UDISKS_IGNORE}="1"' > "$RULE"; udevadm control --reload
+LOOP=$(losetup -Pf --show "$IMG")
+udevadm settle
+mkfs.ext4 -q -L ROOTFS -m 1 "${LOOP}p2"
+ROOT_UUID=$(blkid -s UUID -o value "${LOOP}p2")
+BOOT_UUID=$(blkid -s UUID -o value "${LOOP}p1")
+mkdir -p "$R"; mount "${LOOP}p2" "$R"; mkdir -p "$R/boot"; mount "${LOOP}p1" "$R/boot"
+
+# 3. система с приставки
+rsync -aHAX --numeric-ids "${EXCL[@]}" / "$R/"
+mkdir -p "$R"/{proc,sys,dev,run,tmp,mnt,media,var/tmp,var/log,var/cache/apt,var/lib/apt/lists,var/backups,srv/share,boot}
+chmod 1777 "$R/tmp" "$R/var/tmp"
+# загрузочный раздел: ядро, dtb, initrd и заставка с приставки, скрипты загрузки с SD — из ophub
+rsync -rt --modify-window=2 --exclude=uEnv.txt --exclude='*.bak*' --exclude=extlinux/ /boot/ "$R/boot/"
+sed -E "s#root=UUID=[0-9a-f-]+#root=UUID=${ROOT_UUID}#" /boot/uEnv.txt > "$R/boot/uEnv.txt"
+cat > "$R/etc/fstab" <<EOF
+UUID=${ROOT_UUID}  /      ext4   defaults,noatime,nodiratime,commit=60,errors=remount-ro  0 1
+UUID=${BOOT_UUID}  /boot  vfat   defaults  0 2
+tmpfs              /tmp   tmpfs  defaults,nosuid  0 0
+EOF
+
+# 4. вычистить личное
+C=$R
+rm -rf "$C"/etc/agent-access/* "$C"/etc/upterm/guest_keys "$C"/home/agent/.ssh/* "$C"/root/.ssh/* \
+       "$C"/home/agent/.local/state/upterm "$C"/etc/kvorix/{novnc.token,novnc-nginx.inc,vnc.pass,vnc.pass.txt,ai.conf} \
+       "$C"/etc/armbian-cluster "$C"/etc/netplan/30-wifis-dhcp.yaml "$C"/etc/ssh/ssh_host_* \
+       "$C"/home/agent/.bash_history "$C"/root/.bash_history "$C"/home/agent/.xsession-errors* \
+       "$C"/home/agent/.gnupg "$C"/home/agent/.local/share/{recently-used.xbel,gvfs-metadata,pki,vlc,kvorix/old-desktop} \
+       "$C"/home/agent/.local/share/Trash "$C"/home/agent/.ICEauthority "$C"/home/agent/.Xauthority \
+       "$C"/home/agent/.config/armbian-tv/cluster.json "$C"/home/agent/.config/armbian-tv/autostart-backup.json \
+       "$C"/var/lib/kvorix/* "$C"/etc/sudoers.d/ai-access "$C"/etc/chrony/chrony.keys \
+       "$C"/etc/dnsmasq.d/cluster.conf "$C"/etc/chrony/conf.d/local-cluster.conf "$C"/root/.config/gh \
+       "$C"/usr/local/bin/{cluster_agent.py,cluster_lib.py,cluster-link-watch.sh,join-cluster-node.sh,node1,node-beacon.py,repair-card.sh,sd-prepare.sh} \
+       "$C"/usr/local/sbin/cluster-dns-sync "$C"/etc/systemd/system/{cluster-*,node-beacon.service} \
+       "$C"/etc/systemd/system/*/cluster-* "$C"/etc/systemd/system/*/node-beacon.service \
+       "$C"/root/{rsaarm-backup-*,access-backup-*,backup-gui,kvorix-backup-*,kvorix-search-stage-*,*.profile.bak,wired1.profile.bak}
+find "$C" -xdev \( -name '*.bak' -o -name '*.bak-*' -o -name '*.bak_*' -o -name '*.backup-*' -o -name '*.pre-*' \) \
+     -path "$C/etc/*" -delete 2>/dev/null || true
+: > "$C/etc/machine-id"; rm -f "$C/var/lib/dbus/machine-id"
+mkdir -p "$C/var/lib/kvorix"
+# доступ ИИ — выключен, у каждой приставки будут свои темы и токены
+for u in agent-slot@0 agent-slot@1 agent-cmd kvorix-autoreport.timer; do
+    rm -f "$C"/etc/systemd/system/*.wants/"$u".service "$C"/etc/systemd/system/*.wants/"$u"
+done
+# пароль: agent / kvorix, смена при первом входе по SSH или консоли; root заблокирован
+echo 'agent:kvorix' | chpasswd -R "$C"
+chroot "$C" chage -d 0 agent
+chroot "$C" passwd -l root >/dev/null
+# первый запуск: свои ключи, пароль VNC, токен noVNC; растянуть раздел на весь носитель
+install -m 755 /usr/local/sbin/kvorix-firstboot "$C/usr/local/sbin/kvorix-firstboot"
+cat > "$C/etc/systemd/system/kvorix-firstboot.service" <<'EOF'
+[Unit]
+Description=Kvorix: первый запуск (свои ключи и пароли)
+ConditionPathExists=/etc/kvorix/.firstboot
+Before=ssh.service nginx.service kvorix-vnc.service kvorix-novnc.service display-manager.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kvorix-firstboot
+
+[Install]
+WantedBy=multi-user.target
+EOF
+ln -sf /etc/systemd/system/kvorix-firstboot.service "$C/etc/systemd/system/multi-user.target.wants/kvorix-firstboot.service"
+ln -sf /usr/lib/systemd/system/armbian-resize-filesystem.service "$C/etc/systemd/system/multi-user.target.wants/armbian-resize-filesystem.service"
+touch "$C/etc/kvorix/.firstboot"
+sync
+
+# 5. проверка: в образе не осталось секретов этой приставки
+LEAK=0
+for f in /etc/kvorix/ai.conf /etc/kvorix/novnc.token /etc/kvorix/vnc.pass.txt; do
+    [ -s "$f" ] || continue
+    while IFS= read -r v; do
+        v=${v#*=}; [ ${#v} -ge 8 ] || continue
+        if grep -rqsF --exclude-dir=proc -- "$v" "$C/etc" "$C/usr/local" "$C/home" "$C/root" "$C/var/lib"; then echo "УТЕЧКА из $f"; LEAK=1; fi
+    done < <(grep -v '^#' "$f")
+done
+PSK=$(grep -hs '^psk=' /etc/NetworkManager/system-connections/* | cut -d= -f2 | head -1)
+if [ -n "$PSK" ] && grep -rqsF -- "$PSK" "$C/etc" "$C/home"; then echo "УТЕЧКА: пароль Wi-Fi"; LEAK=1; fi
+[ "$LEAK" = 0 ] || exit 2
+echo "секретов не найдено"
+echo "ГОТОВО: $IMG"

@@ -1,0 +1,22 @@
+W = Window.GetWidth(); H = Window.GetHeight();
+bg = Sprite(Image("bg.png").Scale(W, H)); bg.SetZ(-100);
+logo = Image("logo.png");
+ls = Sprite(logo); ls.SetX(W / 2 - logo.GetWidth() / 2); ls.SetY(H * 0.42 - logo.GetHeight() / 2); ls.SetOpacity(0);
+dimg = Image("dot.png");
+for (i = 0; i < 5; i++) {
+  dot[i] = Sprite(dimg);
+  dot[i].SetX(W / 2 - 2.5 * 26 + i * 26 + 6); dot[i].SetY(H * 0.70); dot[i].SetOpacity(0.15);
+}
+t = 0;
+fun refresh_callback() {
+  t++;
+  a = t / 45; if (a > 1) a = 1;
+  ls.SetOpacity(a * (0.88 + 0.12 * Math.Sin(t / 18)));
+  for (i = 0; i < 5; i++) {
+    v = Math.Sin(t / 7 - i * 0.7);
+    if (v < 0) v = 0;
+    dot[i].SetOpacity(a * (0.15 + 0.85 * v));
+    dot[i].SetY(H * 0.70 - 6 * v);
+  }
+}
+Plymouth.SetRefreshFunction(refresh_callback);

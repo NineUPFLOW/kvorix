@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Диспетчер задач
+Exec=kvorix-taskmanager
+Icon=utilities-system-monitor
+Terminal=false

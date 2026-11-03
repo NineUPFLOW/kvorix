@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""Значки Kvorix: цветной скруглённый квадрат + белый однотонный символ (как плитки в Настройках)."""
+import glob, os, re, subprocess, sys
+
+OUT = "/usr/share/icons/Kvorix-Icons/scalable/apps"
+# имя значка → (символ, цвет)
+G = {
+  "folder": ("folder-symbolic", "#f2a516"), "pc": ("computer-symbolic", "#2f7cf6"),
+  "mon": ("utilities-system-monitor-symbolic", "#16a34a"), "set": ("emblem-system-symbolic", "#5b6b82"),
+  "term": ("utilities-terminal-symbolic", "#334155"), "calc": ("accessories-calculator-symbolic", "#ea580c"),
+  "text": ("accessories-text-editor-symbolic", "#0ea5e9"), "img": ("image-x-generic-symbolic", "#db2777"),
+  "doc": ("x-office-document-symbolic", "#dc2626"), "scan": ("scanner-symbolic", "#0891b2"),
+  "disk": ("drive-harddisk-symbolic", "#64748b"), "usb": ("drive-removable-media-symbolic", "#0f9d8f"),
+  "trash": ("user-trash-symbolic", "#6b7280"), "trashf": ("user-trash-full-symbolic", "#6b7280"),
+  "snd": ("audio-volume-high-symbolic", "#7c3aed"), "bt": ("bluetooth-active-symbolic", "#5b6cf0"),
+  "print": ("printer-symbolic", "#475569"), "pkg": ("system-software-install-symbolic", "#2563eb"),
+  "shot": ("camera-photo-symbolic", "#0d9488"), "arch": ("package-x-generic-symbolic", "#a16207"),
+  "find": ("system-search-symbolic", "#2f7cf6"), "clip": ("edit-paste-symbolic", "#0ea5e9"),
+  "disp": ("video-display-symbolic", "#0f9d8f"), "look": ("preferences-desktop-appearance-symbolic", "#c2410c"),
+  "kbd": ("input-keyboard-symbolic", "#475569"), "mouse": ("input-mouse-symbolic", "#475569"),
+  "power": ("battery-good-symbolic", "#16a34a"), "run": ("system-run-symbolic", "#475569"),
+  "home": ("user-home-symbolic", "#f2a516"), "off": ("system-shutdown-symbolic", "#dc2626"),
+  "reboot": ("system-reboot-symbolic", "#2563eb"), "lock": ("system-lock-screen-symbolic", "#475569"),
+  "logout": ("system-log-out-symbolic", "#6b7280"), "net": ("network-wireless-symbolic", "#2f7cf6"),
+  "time": ("preferences-system-time-symbolic", "#0891b2"), "users": ("system-users-symbolic", "#7c3aed"),
+  "notif": ("preferences-system-notifications-symbolic", "#ea580c"), "upd": ("software-update-available-symbolic", "#16a34a"),
+  "ai": ("network-server-symbolic", "#7c3aed"), "fp": ("preferences-other-symbolic", "#0f9d8f"), "phone": ("phone-symbolic", "#0f9d8f"),
+}
+M = {
+  "folder": "system-file-manager org.xfce.thunar thunar org.xfce.filemanager file-manager",
+  "pc": "user-desktop computer", "mon": "utilities-system-monitor org.gnome.SystemMonitor gnome-system-monitor xfce4-taskmanager",
+  "set": "preferences-system org.xfce.settings.manager preferences-desktop xfce4-settings-manager org.xfce.settings.editor",
+  "term": "utilities-terminal org.xfce.terminal org.xfce.terminalemulator xfce4-terminal org.xfce.terminal-settings terminal",
+  "calc": "galculator accessories-calculator", "text": "org.xfce.mousepad accessories-text-editor mousepad",
+  "img": "org.xfce.ristretto image-viewer ristretto", "doc": "org.gnome.Evince evince",
+  "scan": "org.gnome.SimpleScan simple-scan", "disk": "org.gnome.DiskUtility drive-harddisk gnome-disks",
+  "usb": "drive-removable-media media-removable org.xfce.volman drive-removable-media-flash-mmc drive-removable-media-flash-sd drive-removable-media-flash drive-removable-media-usb drive-removable media-flash", "trash": "user-trash", "trashf": "user-trash-full",
+  "snd": "multimedia-volume-control org.pulseaudio.pavucontrol pavucontrol", "bt": "blueman preferences-system-bluetooth blueman-device bluetooth",
+  "print": "printer document-print-preview system-config-printer", "pkg": "synaptic system-software-install package-x-generic gdebi",
+  "shot": "applets-screenshooter org.xfce.screenshooter kvorix-snip", "phone": "phone smartphone", "arch": "xarchiver", "find": "org.xfce.appfinder system-search",
+  "clip": "xfce4-clipman-plugin xfce4-clipman", "disp": "org.xfce.settings.display preferences-desktop-display",
+  "look": "org.xfce.settings.appearance preferences-desktop-theme preferences-desktop-wallpaper org.xfce.xfdesktop",
+  "kbd": "org.xfce.settings.keyboard preferences-desktop-keyboard", "mouse": "org.xfce.settings.mouse preferences-desktop-peripherals",
+  "power": "org.xfce.powermanager xfce4-power-manager-settings", "run": "system-run preferences-system-session org.xfce.session",
+  "home": "user-home folder-home", "off": "system-shutdown", "reboot": "system-reboot", "lock": "system-lock-screen",
+  "logout": "xfsm-logout system-log-out", "net": "preferences-system-network network-workgroup",
+  "time": "preferences-system-time", "users": "system-users", "notif": "org.xfce.notification xfce4-notifyd",
+  "upd": "system-software-update", "ai": "kvorix-ai", "fp": "front-panel",
+}
+
+# фирменные логотипы оставляем как есть (их узнают по цвету и форме)
+BRANDS = {"chromium", "vlc"}
+# раздел программы → (символ, цвет) для всех остальных программ, в том числе установленных позже
+CATS = [("Game", "applications-games-symbolic", "#e11d48"),
+        ("WebBrowser", "web-browser-symbolic", "#2f7cf6"),
+        ("AudioVideo", "multimedia-player-symbolic", "#7c3aed"),
+        ("Audio", "multimedia-player-symbolic", "#7c3aed"),
+        ("Video", "multimedia-player-symbolic", "#7c3aed"),
+        ("Office", "applications-office-symbolic", "#dc2626"),
+        ("Graphics", "applications-graphics-symbolic", "#db2777"),
+        ("Development", "applications-development-symbolic", "#334155"),
+        ("Science", "applications-science-symbolic", "#0891b2"),
+        ("Education", "applications-education-symbolic", "#0891b2"),
+        ("Network", "applications-internet-symbolic", "#2f7cf6"),
+        ("Settings", "emblem-system-symbolic", "#5b6b82"),
+        ("System", "applications-system-symbolic", "#475569"),
+        ("Utility", "applications-utilities-symbolic", "#0f9d8f")]
+DEFAULT = ("application-x-executable-symbolic", "#64748b")
+APP_DIRS = ["/usr/share/applications", "/usr/local/share/applications", "/home/agent/.local/share/applications"]
+SYM = "/usr/share/icons/Papirus"
+
+
+def find_glyph(name):
+    for size in ("16x16", "24x24", "22x22", "32x32"):
+        for p in glob.glob(f"{SYM}/{size}/symbolic/*/{name}.svg"):
+            return p
+    return None
+
+
+def glyph(name):
+    p = find_glyph(name)
+    if not p:
+        raise LookupError(name)
+    s = open(p, encoding="utf-8").read()
+    m = re.search(r"<svg\b[^>]*>", s)
+    vb = re.search(r'viewBox="([^"]+)"', m.group(0))
+    vb = vb.group(1) if vb else "0 0 16 16"
+    body = s[m.end():s.rindex("</svg>")]
+    body = re.sub(r'(fill|stroke)="(?!none)[^"]*"', r'\1="#ffffff"', body)
+    body = re.sub(r'(fill|stroke):(?!none)[^;"]+', r'\1:#ffffff', body)
+    body = re.sub(r'color:[^;"]+', 'color:#ffffff', body)
+    return vb, body
+
+
+def svg(sym, color):
+    vb, body = glyph(sym)
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+ <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".18"/><stop offset="1" stop-color="#000000" stop-opacity=".08"/></linearGradient></defs>
+ <rect x="4" y="4" width="56" height="56" rx="15" fill="{color}"/>
+ <rect x="4" y="4" width="56" height="56" rx="15" fill="url(#g)"/>
+ <svg x="17" y="17" width="30" height="30" viewBox="{vb}" color="#ffffff" fill="#ffffff">{body}</svg>
+</svg>
+'''
+
+
+def desktop_apps():
+    """(значок, разделы) всех видимых программ."""
+    for d in APP_DIRS:
+        for f in glob.glob(d + "/*.desktop"):
+            icon, cats, show = "", "", True
+            try:
+                for line in open(f, encoding="utf-8", errors="replace"):
+                    if line.startswith("[") and not line.startswith("[Desktop Entry]"):
+                        break
+                    k, _, v = line.strip().partition("=")
+                    if k == "Icon": icon = v
+                    elif k == "Categories": cats = v
+                    elif k in ("NoDisplay", "Hidden") and v.lower() == "true": show = False
+            except OSError:
+                continue
+            # путь к картинке вместо имени значка темой не заменить
+            if show and icon and "/" not in icon and not icon.endswith((".png", ".svg", ".xpm")):
+                yield icon, cats.split(";")
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    want = {}
+    for key, names in M.items():
+        for nm in names.split():
+            want[nm] = G[key]
+    for icon, cats in desktop_apps():
+        if icon in want or icon in BRANDS:
+            continue
+        own = icon + "-symbolic"
+        if find_glyph(own):  # у Papirus есть свой символ программы
+            color = next((c for k, _, c in CATS if k in cats), DEFAULT[1])
+            want[icon] = (own, color)
+        else:
+            want[icon] = next(((g, c) for k, g, c in CATS if k in cats), DEFAULT)
+    n = 0
+    for nm, (sym, color) in want.items():
+        try:
+            data = svg(sym, color)
+        except LookupError:
+            data = svg(*DEFAULT)
+        p = os.path.join(OUT, nm + ".svg")
+        if os.path.exists(p) and open(p, encoding="utf-8").read() == data:
+            continue
+        with open(p + ".tmp", "w", encoding="utf-8", newline="\n") as f:
+            f.write(data); f.flush(); os.fsync(f.fileno())
+        os.replace(p + ".tmp", p); n += 1
+    # значки удалённых программ
+    for p in glob.glob(OUT + "/*.svg"):
+        if os.path.basename(p)[:-4] not in want:
+            os.remove(p); n += 1
+    if n:
+        for t in ("Kvorix-Icons", "Kvorix-Icons-Dark"):
+            subprocess.run(["gtk-update-icon-cache", "-f", "-q", "/usr/share/icons/" + t], check=False)
+    if "--quiet" not in sys.argv:
+        print("значков:", len(want), "изменено:", n)
+
+
+if __name__ == "__main__":
+    main()

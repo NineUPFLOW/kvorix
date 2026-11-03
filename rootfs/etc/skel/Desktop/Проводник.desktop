@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Файлы
+Exec=thunar /home/agent
+Icon=system-file-manager
+Terminal=false

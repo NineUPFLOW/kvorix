@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Буфер обмена
+Comment=История буфера обмена (Win+V), один экземпляр на пользователя
+Exec=sh -c "sleep 4; pgrep -u $(id -u) -x xfce4-clipman >/dev/null || exec xfce4-clipman"
+NoDisplay=true

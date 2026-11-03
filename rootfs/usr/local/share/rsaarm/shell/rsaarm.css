@@ -1,0 +1,385 @@
+
+@define-color accent #2f7cf6;
+@define-color accent_soft rgba(47, 124, 246, 0.14);
+@define-color fg #1c2130;
+@define-color fg_dim #5a6272;
+
+
+.rsaarm-bar {
+    background-color: rgba(250, 251, 254, 0.80);
+    border-bottom: 1px solid rgba(15, 20, 35, 0.08);
+    color: @fg;
+    font: 11px "Inter";
+}
+.rsaarm-logo label {
+    font: bold 12.5px "Inter";
+    color: @accent;
+    letter-spacing: 1px;
+}
+.bar-btn {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 4px 7px;
+    color: @fg;
+    transition: 130ms ease;
+}
+.bar-btn:hover {
+    background: rgba(20, 40, 90, 0.10);
+}
+.clock {
+    font: bold 11.5px "Inter";
+    color: @fg;
+    letter-spacing: 0.3px;
+}
+
+
+popover.background {
+    background-color: rgba(253, 254, 255, 0.98);
+    border-radius: 14px;
+    box-shadow: 0 10px 32px rgba(20, 30, 60, 0.22);
+    color: @fg;
+}
+.pop-btn {
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    padding: 7px 10px;
+    color: @fg;
+    font: 11px "Inter";
+    transition: 120ms ease;
+}
+.pop-btn:hover {
+    background: @accent_soft;
+    color: @accent;
+}
+.pop-btn:checked {
+    background: @accent;
+    color: #ffffff;
+}
+
+
+.rsaarm-dock {
+    background-color: rgba(251, 252, 254, 0.80);
+    border: 1px solid rgba(15, 20, 35, 0.10);
+    border-radius: 22px;
+    box-shadow: 0 12px 34px rgba(20, 30, 60, 0.22);
+    color: @fg;
+}
+.dock-btn {
+    background: transparent;
+    border: none;
+    border-radius: 17px;
+    padding: 5px 7px 2px 7px;
+    color: @fg;
+    transition: 140ms ease;
+}
+.dock-btn:hover {
+    background: @accent_soft;
+    -gtk-icon-transform: scale(1.15);
+}
+.dock-btn .dot {
+    font: 8px "Inter";
+    color: transparent;
+}
+.dock-btn.running .dot {
+    color: @accent;
+}
+.dock-btn.minimized .dot {
+    color: @fg_dim;
+}
+.dock-btn.running {
+    background: rgba(47, 124, 246, 0.08);
+}
+
+
+.menu-scrim {
+    background-color: rgba(16, 20, 30, 0.42);
+}
+.menu-card {
+    background-color: rgba(253, 254, 255, 0.97);
+    border-radius: 24px;
+    box-shadow: 0 24px 64px rgba(15, 25, 50, 0.35);
+    color: @fg;
+}
+.menu-search {
+    border-radius: 13px;
+    border: 1px solid rgba(15, 20, 35, 0.12);
+    padding: 8px 12px;
+    font: 13px "Inter";
+    background: #ffffff;
+    box-shadow: inset 0 1px 3px rgba(20, 30, 60, 0.06);
+}
+.menu-search:focus {
+    border-color: @accent;
+    box-shadow: 0 0 0 3px rgba(47, 124, 246, 0.18);
+}
+.chip {
+    border-radius: 999px;
+    border: 1px solid rgba(15, 20, 35, 0.10);
+    padding: 4px 12px;
+    background: transparent;
+    color: @fg_dim;
+    font: 10.5px "Inter";
+    transition: 120ms ease;
+}
+.chip:hover {
+    background: rgba(20, 40, 90, 0.08);
+    color: @fg;
+}
+.chip:checked {
+    background: @accent;
+    border-color: @accent;
+    color: #ffffff;
+}
+.menu-scroll, .menu-scroll viewport {
+    background: transparent;
+}
+.menu-scroll scrollbar slider {
+    min-width: 5px;
+    border-radius: 3px;
+    background: rgba(15, 20, 35, 0.18);
+}
+.app-btn {
+    background: transparent;
+    border: none;
+    border-radius: 15px;
+    padding: 10px 8px;
+    color: @fg;
+    transition: 120ms ease;
+}
+.app-btn:hover {
+    background: @accent_soft;
+}
+.app-btn label {
+    font: 10.5px "Inter";
+    color: @fg;
+}
+
+
+.rsaarm-taskbar {
+    background-color: rgba(243, 245, 250, 0.82);
+    border-top: 1px solid rgba(15, 20, 35, 0.09);
+    color: #1c2130;
+    font: 11px "Inter";
+}
+.tb-btn {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 5px 7px 3px 7px;
+    color: #1c2130;
+    transition: 130ms ease;
+}
+.tb-btn:hover {
+    background: rgba(20, 40, 90, 0.10);
+}
+.tb-btn:active {
+    background: rgba(47, 124, 246, 0.18);
+}
+.tb-start:hover {
+    background: rgba(47, 124, 246, 0.16);
+}
+.tb-search {
+    background: rgba(15, 20, 35, 0.05);
+    border: none;
+    border-radius: 999px;
+    padding: 9px 18px;
+    color: #5a6272;
+    font: 11px "Inter";
+    transition: 130ms ease;
+}
+.tb-search:hover {
+    background: rgba(15, 20, 35, 0.09);
+}
+.tb-search-label { color: #5a6272; }
+.tb-clock label { font: 11px "Inter"; }
+.tb-ind {
+    min-width: 16px;
+    min-height: 3px;
+    border-radius: 2px;
+    background: transparent;
+    transition: 150ms ease;
+}
+.tb-btn.running .tb-ind { background: rgba(47, 124, 246, 0.75); }
+.tb-btn.active-app .tb-ind { min-width: 22px; background: #2f7cf6; }
+.tb-btn.minimized image { opacity: 0.55; }
+
+
+.qs { font: 11px "Inter"; }
+.qs-cap { font: bold 10px "Inter"; color: #5a6272; }
+.qs-tile {
+    background: rgba(15, 20, 35, 0.05);
+    border: none;
+    border-radius: 12px;
+    color: #1c2130;
+    transition: 130ms ease;
+}
+.qs-tile:hover { background: rgba(15, 20, 35, 0.10); }
+.qs-tile:checked {
+    background: #2f7cf6;
+    color: #ffffff;
+}
+.qs-tile:checked .qs-tile-label { color: #ffffff; }
+.qs-tile-label { font: 10px "Inter"; }
+.rsaarm-cal { opacity: 1; }
+
+
+.sm-shadow { background: transparent; }
+.sm {
+    background-color: rgba(248, 250, 253, 0.97);
+    border-radius: 16px;
+    box-shadow: 0 22px 60px rgba(15, 25, 50, 0.32);
+    border: 1px solid rgba(15, 20, 35, 0.08);
+    color: #1c2130;
+    font: 11px "Inter";
+}
+.sm-search {
+    border-radius: 999px;
+    border: 1px solid rgba(15, 20, 35, 0.12);
+    padding: 8px 14px;
+    font: 12px "Inter";
+    background: #ffffff;
+    box-shadow: inset 0 1px 3px rgba(20, 30, 60, 0.06);
+}
+.sm-search:focus {
+    border-color: #2f7cf6;
+    box-shadow: 0 0 0 3px rgba(47, 124, 246, 0.18);
+}
+.sm-h { font: bold 11.5px "Inter"; color: #1c2130; }
+.sm-app {
+    background: transparent;
+    border: none;
+    border-radius: 11px;
+    padding: 9px 6px;
+    color: #1c2130;
+    transition: 110ms ease;
+}
+.sm-app:hover { background: rgba(47, 124, 246, 0.13); }
+.sm-app-label { font: 10px "Inter"; color: #1c2130; }
+.sm-link {
+    background: transparent;
+    border: none;
+    color: #2f7cf6;
+    font: 11px "Inter";
+    padding: 3px 6px;
+    border-radius: 7px;
+}
+.sm-link:hover { background: rgba(47, 124, 246, 0.10); }
+.sm-rec {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 6px 8px;
+    color: #1c2130;
+    font: 11px "Inter";
+}
+.sm-rec:hover { background: rgba(47, 124, 246, 0.10); }
+.sm-rec:hover label { color: #2f7cf6; }
+.sm-avatar {
+    font: bold 13px "Inter";
+    color: #ffffff;
+    background: #2f7cf6;
+    border-radius: 999px;
+    padding: 7px 10px;
+}
+.sm-user { font: bold 11px "Inter"; }
+.sm-footer { padding-top: 8px; }
+.sm-foot-btn {
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    padding: 7px 9px;
+    color: #1c2130;
+    transition: 120ms ease;
+}
+.sm-foot-btn:hover { background: rgba(47, 124, 246, 0.13); color: #2f7cf6; }
+.sm-dim { font: 10.5px "Inter"; color: #9aa1b2; }
+.sm-scroll, .sm-scroll viewport { background: transparent; }
+.sm-scroll scrollbar slider {
+    min-width: 5px; border-radius: 3px;
+    background: rgba(15, 20, 35, 0.18);
+}
+
+
+.rsaarm-taskbar {
+    background-color: rgba(246, 248, 252, 0.96);
+    border-top: 1px solid rgba(15, 20, 35, 0.14);
+}
+.popover, .popover.background {
+    background-color: rgb(250, 251, 254);
+    border: 1px solid rgba(15, 20, 35, 0.16);
+    border-radius: 14px;
+}
+.qs {
+    background-color: rgb(250, 251, 254);
+}
+.qs-cap { color: #3a4152; }
+.pop-btn {
+    background: rgba(15, 20, 35, 0.07);
+    border: 1px solid rgba(15, 20, 35, 0.12);
+    border-radius: 9px;
+    color: #1c2130;
+    font: bold 11px "Inter";
+    padding: 7px 10px;
+    transition: 120ms ease;
+}
+.pop-btn:hover { background: rgba(47, 124, 246, 0.14); }
+.pop-btn:checked {
+    background: #d92d20;
+    color: #ffffff;
+    border-color: #b32418;
+}
+.qs scale trough {
+    min-height: 6px; border-radius: 3px;
+    background: rgba(15, 20, 35, 0.14);
+}
+.qs scale highlight { background: #2f7cf6; border-radius: 3px; }
+.qs scale slider {
+    min-width: 18px; min-height: 18px; border-radius: 50%;
+    background: #ffffff; border: 2px solid #2f7cf6; margin: -7px;
+}
+.qs-tile {
+    background: rgba(15, 20, 35, 0.07);
+    border: 1px solid rgba(15, 20, 35, 0.10);
+}
+.qs-tile-label { color: #1c2130; font-weight: bold; }
+.sm {
+    background-color: rgba(250, 251, 254, 0.98);
+    border: 1px solid rgba(15, 20, 35, 0.14);
+}
+.tb-search {
+    background: rgba(15, 20, 35, 0.08);
+    border: 1px solid rgba(15, 20, 35, 0.10);
+}
+.tb-search-label { color: #3a4152; }
+.rsaarm-cal {
+    background-color: rgb(250, 251, 254);
+    border: 1px solid rgba(15, 20, 35, 0.14);
+    border-radius: 10px;
+}
+
+
+.qs-pop {
+    background-color: #f8fafd;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    padding: 6px;
+}
+.sm { background-color: #f8fafd; border-radius: 0; border: none; box-shadow: none; padding: 18px 20px 12px 20px; }
+.tb-btn.active-app { background: rgba(47, 124, 246, 0.13); }
+.tb-btn.running:not(.active-app) .tb-ind { min-width: 6px; margin-left: 5px; margin-right: 5px; }
+.tb-lang { min-width: 32px; padding: 3px 4px; }
+.tb-lang label { font: bold 10.5px "Inter"; letter-spacing: 0.4px; color: #2b3245; }
+.tb-tray { min-width: 48px; padding: 3px 6px; }
+.tb-clock { min-width: 58px; padding: 2px 5px; }
+.tb-pw { min-width: 30px; padding: 3px 4px; }
+.tb-showdesk { background: transparent; border: none; border-left: 1px solid rgba(15, 20, 35, 0.14); border-radius: 0; padding: 0; min-width: 5px; }
+.tb-showdesk:hover { background: rgba(47, 124, 246, 0.35); }
+.qs-info { background: rgba(15, 20, 35, 0.05); border: 1px solid rgba(15, 20, 35, 0.09); border-radius: 10px; padding: 7px 10px; }
+.qs-foot { border-top: 1px solid rgba(15, 20, 35, 0.10); padding-top: 8px; }
+.cal-hero-time { font: bold 24px "Inter"; color: #1c2130; }
+.cal-hero-date { font: 11.5px "Inter"; color: #5a6272; }
+.sm-rec-sub { font: 9.5px "Inter"; color: #6c7486; }
+.sm-footer { border-top: 1px solid rgba(15, 20, 35, 0.09); padding-top: 10px; margin-top: 2px; }

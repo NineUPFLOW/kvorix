@@ -1,0 +1,12 @@
+#!/bin/bash
+[ "$PAM_TYPE" = open_session ] || exit 0
+R="${PAM_RHOST:-}"
+SRC="ssh"
+if [ -z "$R" ]; then R="-"; SRC="консоль"; fi
+case "$R" in
+  127.0.0.1|::1|localhost) KIND="ИИ"; R="туннель upterm" ;;
+  *)                        KIND="человек" ;;
+esac
+printf '%s\t%s\t%s\t%s\t%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "${PAM_USER:-?}" "$R" "$KIND" "$SRC" \
+  >> /var/lib/kvorix/access.log 2>/dev/null
+exit 0

@@ -1,0 +1,2 @@
+# Kvorix: видеокарта Mali-G31 (Panfrost) для отрисовки страниц; меньше процессов — меньше памяти
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --renderer-process-limit=3"

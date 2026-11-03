@@ -1,0 +1,73 @@
+#!/bin/bash
+R=$'\e[0m' B=$'\e[1m' D=$'\e[2m'
+c() { printf '\e[38;5;%sm' "$1"; }
+A1=$(c 39) A2=$(c 45) A3=$(c 51) G=$(c 78) Y=$(c 221) RD=$(c 203) M=$(c 245) W=$(c 255)
+
+bar() {
+  local p=$1 n=$(( $1 / 5 )) col=$G s=""
+  [ "$p" -ge 70 ] && col=$Y; [ "$p" -ge 90 ] && col=$RD
+  for ((i = 0; i < 20; i++)); do [ $i -lt $n ] && s+="━" || s+="─"; done
+  printf '%s%s%s%s' "$col" "${s:0:n}" "$M$D" "${s:n}$R"
+}
+lbl() {
+  local s="$1"; printf '  %s%s%*s%s ' "$M" "$s" $(( 11 - ${#s} )) "" "$R"
+}
+dot() {
+  case "$1" in
+    ok)  printf '%s●%s' "$G" "$R" ;;
+    off) printf '%s○%s' "$M" "$R" ;;
+    *)   printf '%s●%s' "$RD" "$R" ;;
+  esac
+}
+
+host=$(hostname)
+model=$(tr -d '\0' </proc/device-tree/model 2>/dev/null || echo "ARM")
+. /etc/os-release
+os="${PRETTY_NAME/Armbian OS/Armbian}"
+ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<NF;i++) if ($i=="src") print $(i+1)}')
+up=$(awk '{d=int($1/86400); h=int($1%86400/3600); m=int($1%3600/60); if (d) printf "%d д %d ч", d, h; else if (h) printf "%d ч %d мин", h, m; else printf "%d мин", m}' /proc/uptime)
+cpu_p=$(awk '{printf "%d", $1 * 100 / '"$(nproc)"'}' /proc/loadavg); [ "$cpu_p" -gt 100 ] && cpu_p=100
+read -r mt ma < <(awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END{print t, a}' /proc/meminfo)
+mem_p=$(( (mt - ma) * 100 / mt )); mem_t=$(awk -v k="$mt" 'BEGIN{printf "%.1f", k/1048576}')
+read -r dk_p dk_t < <(df -BG / | awk 'NR==2{gsub("%","",$5); gsub("G"," ГБ",$2); print $5, $2}')
+t=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null); t=$(( ${t:-0} / 1000 ))
+tc=$G; [ "$t" -ge 65 ] && tc=$Y; [ "$t" -ge 75 ] && tc=$RD
+
+if [ "$host" = kvorix ]; then
+  role="Рабочий стол Kvorix"
+  systemctl -q is-active agent-slot@0 && ai="$(dot ok) включён" || ai="$(dot no) выключен"
+  if [ ! -L /etc/systemd/system/multi-user.target.wants/armbian-cluster-node.service ] && ! systemctl -q is-active armbian-cluster-node; then
+    nd="$(dot off) выключен"
+  else
+    node=$(grep -oE '"host"[[:space:]]*:[[:space:]]*"[^"]+"' /etc/armbian-cluster/cluster.json 2>/dev/null | head -1 | cut -d'"' -f4)
+    timeout 0.4 bash -c "</dev/tcp/${node:-192.168.0.128}/22" 2>/dev/null \
+      && nd="$(dot ok) на связи (${node:-192.168.0.128})" \
+      || nd="$(dot no) нет связи"
+  fi
+else
+  role="Узел кластера Kvorix"
+  systemctl -q is-active dnsmasq && ai="$(dot ok) работает" || ai="$(dot no) остановлен"
+  nd=""
+fi
+
+echo
+printf '  %s%s▗▖ ▗▖▗▖  ▗▖▗▄▄▄▖▗▄▄▖ ▗▄▄▄▖▗▖  ▗▖%s\n' "$B" "$A1" "$R"
+printf '  %s%s▐▌▗▞▘▐▌  ▐▌▐▌ ▐▌▐▌ ▐▌  █   ▝▚▞▘ %s   %s%s%s\n' "$B" "$A2" "$R" "$W$B" "$host" "$R"
+printf '  %s%s▐▛▚▖ ▐▌  ▐▌▐▌ ▐▌▐▛▀▚▖  █    ▐▌  %s   %s%s%s\n' "$B" "$A3" "$R" "$M" "$role" "$R"
+printf '  %s%s▐▌ ▐▌ ▝▚▞▘ ▝▚▄▞▘▐▌ ▐▌▗▄█▄▖▗▞▘▝▚▖%s\n' "$B" "$A3" "$R"
+echo
+lbl "Устройство"; printf '%s\n' "$model"
+lbl "Система"; printf '%s · ядро %s\n' "$os" "$(uname -r)"
+lbl "Адрес"; printf '%s%s%s · работает %s\n' "$W$B" "$ip" "$R" "$up"
+echo
+lbl "Процессор"; printf '%s %3d %%\n' "$(bar "$cpu_p")" "$cpu_p"
+lbl "Память"; printf '%s %3d %% из %s ГБ\n' "$(bar "$mem_p")" "$mem_p" "$mem_t"
+lbl "Диск"; printf '%s %3d %% из %s\n' "$(bar "$dk_p")" "$dk_p" "$dk_t"
+lbl "Темпер."; printf '%s%d °C%s\n' "$tc" "$t" "$R"
+echo
+if [ "$host" = kvorix ]; then
+  lbl "Доступ ИИ"; printf '%s\n' "$ai"
+else
+  lbl "DNS-фильтр"; printf '%s\n' "$ai"
+fi
+echo

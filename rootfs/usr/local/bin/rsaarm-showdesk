@@ -1,0 +1,4 @@
+#!/bin/bash
+export DISPLAY=${DISPLAY:-:0}
+ST=$(xprop -root _NET_SHOWING_DESKTOP 2>/dev/null | grep -oE "[01]$")
+if [ "$ST" = "1" ]; then wmctrl -k off; else wmctrl -k on; fi

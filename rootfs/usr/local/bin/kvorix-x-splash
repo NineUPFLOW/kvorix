@@ -1,0 +1,7 @@
+#!/bin/sh
+if [ -f /usr/share/plymouth/themes/kvorix/x-splash.png ]; then
+    hsetroot -fill /usr/share/plymouth/themes/kvorix/x-splash.png >/dev/null 2>&1
+else
+    hsetroot -fill /usr/share/plymouth/themes/rsaarm/x-splash.png >/dev/null 2>&1
+fi
+exit 0

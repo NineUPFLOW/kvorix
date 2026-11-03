@@ -1,0 +1,59 @@
+#!/bin/bash
+UP=/usr/local/bin/upterm
+KEYS=/etc/agent-access/guests_authorized_keys
+LOG=/var/lib/kvorix/access.log
+case "$1" in
+  on)  systemctl enable --now agent-slot@0 agent-slot@1 agent-cmd ;;
+  off) systemctl disable --now agent-slot@0 agent-slot@1 agent-cmd ;;
+  who)
+    declare -A NAME
+    while read -r _ fp rest; do
+      [ -n "${rest:-}" ] && NAME[$fp]=${rest%% (*}
+    done < <(ssh-keygen -lf "$KEYS" 2>/dev/null)
+    PC=/run/kvorix-pubip; [ -n "$(find $PC -mmin -10 2>/dev/null)" ] || curl -s -m 3 https://api.ipify.org > $PC 2>/dev/null
+    PUB=$(cat $PC 2>/dev/null)
+    HOME=/root $UP session list 2>/dev/null | awk 'NR>1 && $2=="ready"{print $1}' | while read -r s; do
+      HOME=/root $UP session info "$s" 2>/dev/null | awk '/^Connected:/{c=1;next} /^$/{c=0} c && $1=="jump"' |
+        while read -r line; do
+          set -- $line; addr=$2; ver=$3
+          fp=$(grep -o 'SHA256:[^ ]*' <<<"$line" | head -1)
+          ip=${addr%:*}
+          lbl=${NAME[$fp]:-неизвестный ключ ${fp#SHA256:}}
+          prog=$(echo "$ver" | sed 's/SSH-2.0-//; s/_/ /')
+          where="интернет"
+          [ -n "$PUB" ] && [ "$ip" = "$PUB" ] && where="ваша домашняя сеть (тот же внешний адрес, что у бокса)"
+          hello=$(awk -F'\t' -v k="$lbl" '$2==k{h=$3" · "$4} END{print h}' /var/lib/kvorix/agent-hello 2>/dev/null)
+          printf 'ИИ-агент\t%s\t%s\tслот %s · %s · %s%s\t—\n' "$lbl" "$ip" "$s" "$prog" "$where" "${hello:+ · $hello}"
+        done
+    done
+    loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}' | while read -r i; do
+      rh=$(loginctl show-session "$i" -p RemoteHost --value 2>/dev/null)
+      case "$rh" in ""|127.0.0.1|::1|localhost) continue;; esac
+      u=$(loginctl show-session "$i" -p Name --value 2>/dev/null)
+      t=$(loginctl show-session "$i" -p Timestamp --value 2>/dev/null)
+      tty=$(loginctl show-session "$i" -p TTY --value 2>/dev/null)
+      printf 'человек\t%s\t%s\t%s\t%s\n' "$u" "$rh" "${tty:-ssh}" "$t"
+    done ;;
+  history)
+    tail -n "$(( ${2:-20} * 8 ))" "$LOG" 2>/dev/null | python3 -c '
+import sys, time, datetime
+rows, out = [], []
+for l in sys.stdin:
+    p = l.rstrip("\n").split("\t")
+    if len(p) != 5: continue
+    t, u, r, k, s = p
+    try: ts = time.mktime(datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S").timetuple())
+    except ValueError: continue
+    if out and out[-1][1] == u and out[-1][3] == k and ts - out[-1][0] <= 90:
+        out[-1] = (out[-1][0], u, r, k, s, out[-1][5] + 1)
+    else:
+        out.append((ts, u, r, k, s, 1))
+for ts, u, r, k, s, n in out[-int(sys.argv[1]):]:
+    tail = "  ×%d" % n if n > 1 else ""
+    print("%s\t%s\t%s\t%s\t%s%s" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)), u, r, k, s, tail))
+' "${2:-20}" ;;
+  kick) systemctl restart agent-slot@0 agent-slot@1 ;;
+  hello)
+    printf '%s\t%s\t%s\t%s\n' "$(date '+%F %T')" "$2" "$3" "$4" >> /var/lib/kvorix/agent-hello ;;
+  *)   systemctl is-active agent-slot@0 agent-slot@1 ;;
+esac

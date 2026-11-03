@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Автоадаптация границ экрана HDMI
+Exec=/usr/local/bin/armbian-screen-fit --apply
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true

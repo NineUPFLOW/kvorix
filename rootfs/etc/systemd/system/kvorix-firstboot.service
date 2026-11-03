@@ -1,0 +1,12 @@
+[Unit]
+Description=Kvorix: первый запуск (свои ключи и пароли)
+ConditionPathExists=/etc/kvorix/.firstboot
+Before=ssh.service nginx.service kvorix-vnc.service kvorix-novnc.service display-manager.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kvorix-firstboot
+
+[Install]
+WantedBy=multi-user.target

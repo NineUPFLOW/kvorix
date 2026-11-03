@@ -1,0 +1,27 @@
+# Если что-то не так
+
+| Проблема | Что сделать |
+|---|---|
+| Чёрный экран / «нет сигнала» | Подождите 1–2 мин (первый запуск дольше). Переподключите HDMI: служба подхватит монитор за ~3 с. Win+P → «Разрешение экрана» → другой режим |
+| Края обрезаны на ТВ | Настройки → Экран → режим «подгонка» (fit) и сдвиг краёв |
+| Нет звука | Настройки → Звук → вывод HDMI; `pactl list short sinks` |
+| Wi-Fi пропал | Не сканируйте сети в цикле (BCM4330 может зависнуть). Перезагрузите приставку |
+| Tailscale «офлайн» | Сторож перезапустит сам за ~2–3 мин; вручную: `sudo systemctl restart tailscaled` |
+| Сайт не открывается | Добавьте домен в `/etc/kvorix/zapret-hosts.txt`, затем `sudo systemctl restart kvorix-zapret` |
+| Тормозит | `ps -L -u agent -o ni=,comm= \| sort \| uniq -c` — у панели/браузера должен быть приоритет 0. `sudo kvorix-health-check` |
+| Значок программы старый | `sudo kvorix-make-icons` (обычно не нужно — запускается сам) |
+| Настройки открываются со старым видом | `kvorix-restart-settings` |
+| Панель задач пропала | `kvorix-restart-panel`; `kvorix-restart-menu` для «Пуска» |
+| Не грузится с карты | Способ с кнопкой reset ([INSTALL](INSTALL.md)); проверьте запись образа; другая карта |
+
+## Журналы
+
+```bash
+journalctl -p err -b          # ошибки текущей загрузки
+systemctl --failed            # упавшие службы
+cat ~/.xsession-errors        # ошибки графического сеанса
+sudo kvorix-health-check      # общая проверка
+```
+
+Известные безвредные ошибки при загрузке: `brcmf_*` / `p2p-dev-wlan0` (Wi-Fi), `DSI transceiver device is disabled`,
+`ASoC: no backend DAIs enabled` — особенности железа, на работу не влияют.

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Браузер Chromium
+Comment=Открыть интернет-браузер
+Exec=/usr/bin/chromium %U
+Icon=chromium
+Terminal=false
+StartupNotify=true

@@ -1,0 +1,10 @@
+[Unit]
+Description=Kvorix: проверка отклонений видеорежима
+
+[Timer]
+OnCalendar=*:*:0/20
+OnBootSec=15
+Persistent=false
+
+[Install]
+WantedBy=timers.target

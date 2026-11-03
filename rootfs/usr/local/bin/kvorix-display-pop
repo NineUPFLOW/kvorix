@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import signal
+import subprocess
+import sys
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GLib, Gtk
+
+CONF = os.path.expanduser("~/.config/rsaarm")
+
+
+def _is_dark():
+    try:
+        with open(os.path.join(CONF, "theme")) as f:
+            return f.read().strip() == "dark"
+    except OSError:
+        return False
+
+
+def _night_on():
+    try:
+        with open(os.path.join(CONF, "personalize.json")) as f:
+            return bool(json.load(f).get("nightlight", False))
+    except Exception:
+        return False
+
+
+def _cur_mode():
+    try:
+        out = subprocess.check_output(["xrandr", "--current"], text=True, timeout=4)
+        for line in out.splitlines():
+            if "*" in line:
+                return line.strip().split()[0]
+    except Exception:
+        pass
+    return "1360x768"
+
+
+class DisplayPop(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_title("Разрешение экрана")
+        self.set_icon_name("preferences-desktop-display")
+        self.set_wmclass("kvorix-display", "Kvorix-display")
+        self.set_resizable(False)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_default_size(440, 390)
+
+        dark = _is_dark()
+        bg = "#1c202b" if dark else "#f5f7fc"
+        card = "#252b39" if dark else "#ffffff"
+        brd = "#353c4f" if dark else "#d8deea"
+        fg = "#eaedf5" if dark else "#1b2130"
+        dim = "#9aa2b4" if dark else "#5c6478"
+
+        css = f"""
+        .dp-win {{ background-color: {bg}; color: {fg}; font: 12px "Inter"; }}
+        .dp-h {{ font: bold 15px "Inter"; color: {fg}; }}
+        .dp-sub {{ font: 11px "Inter"; color: {dim}; }}
+        .dp-card {{ background-color: {card}; border: 1px solid {brd}; border-radius: 11px; padding: 10px 14px; }}
+        .dp-card-active {{ background-color: rgba(47,124,246,0.14); border: 1.5px solid #2f7cf6; border-radius: 11px; padding: 10px 14px; }}
+        .dp-btn {{ background: {card}; color: {fg}; border: 1px solid {brd}; border-radius: 9px; padding: 8px 12px; font: 12px "Inter"; }}
+        .dp-btn:hover {{ border-color: #2f7cf6; background: rgba(47,124,246,0.10); }}
+        .dp-primary {{ background: #2f7cf6; color: #ffffff; border: none; border-radius: 9px; padding: 8px 14px; font: bold 12px "Inter"; }}
+        """
+        pr = Gtk.CssProvider()
+        pr.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), pr, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+        self.get_style_context().add_class("dp-win")
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        root.get_style_context().add_class("dp-win")
+        root.set_margin_top(16); root.set_margin_bottom(16)
+        root.set_margin_start(18); root.set_margin_end(18)
+        self.add(root)
+
+        cur = _cur_mode()
+        hdr = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        hl = Gtk.Label(label="Экран и разрешение HDMI (Win+P)", xalign=0)
+        hl.get_style_context().add_class("dp-h")
+        sl = Gtk.Label(label=f"Активный видеорежим: {cur} · 60 Гц", xalign=0)
+        sl.get_style_context().add_class("dp-sub")
+        hdr.pack_start(hl, False, False, 0)
+        hdr.pack_start(sl, False, False, 0)
+        root.pack_start(hdr, False, False, 2)
+
+        modes = [
+            ("1360×768 — Рекомендуется для ТВ", "Чёткий текст и интерфейс с коррекцией границ HDMI", "1360x768_fit", "1360x768" in cur),
+            ("1920×1080 — Full HD (1080p)", "Мелкий масштаб для больших мониторов 24–32″", "1920x1080", cur.startswith("1920x1080")),
+            ("1280×720 — HD (720p)", "Крупный масштаб для просмотра с дивана", "1280x720", cur.startswith("1280x720")),
+        ]
+        for title, sub, key, is_act in modes:
+            b = Gtk.Button()
+            b.get_style_context().add_class("dp-card-active" if is_act else "dp-card")
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            ic = Gtk.Image.new_from_icon_name("video-display-symbolic", Gtk.IconSize.LARGE_TOOLBAR)
+            hb.pack_start(ic, False, False, 0)
+            vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            t_lbl = Gtk.Label(xalign=0)
+            t_lbl.set_markup(f"<b>{GLib.markup_escape_text(title)}</b>" + ("  ✓" if is_act else ""))
+            s_lbl = Gtk.Label(label=sub, xalign=0)
+            s_lbl.get_style_context().add_class("dp-sub")
+            vb.pack_start(t_lbl, False, False, 0)
+            vb.pack_start(s_lbl, False, False, 0)
+            hb.pack_start(vb, True, True, 0)
+            b.add(hb)
+            b.connect("clicked", self._set_mode, key)
+            root.pack_start(b, False, False, 0)
+
+        act_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        b_fit = Gtk.Button(label="Подгонка границ ТВ")
+        b_fit.get_style_context().add_class("dp-btn")
+        b_fit.connect("clicked", lambda *_: self._run_close(["armbian-screen-fit"]))
+        act_row.pack_start(b_fit, True, True, 0)
+
+        nl = _night_on()
+        b_nl = Gtk.Button(label="Ночной свет: ВКЛ" if nl else "Ночной свет: ВЫКЛ")
+        b_nl.get_style_context().add_class("dp-btn")
+        b_nl.connect("clicked", lambda *_: self._run_close(
+            ["armbian-personalize", "set", "nightlight", "false" if nl else "true"]))
+        act_row.pack_start(b_nl, True, True, 0)
+        root.pack_start(act_row, False, False, 2)
+
+        foot = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        b_off = Gtk.Button(label="Погасить монитор")
+        b_off.get_style_context().add_class("dp-btn")
+        b_off.connect("clicked", lambda *_: self._run_close(["sh", "-c", "sleep 0.3 && xset dpms force off"]))
+        foot.pack_start(b_off, False, False, 0)
+
+        foot.pack_start(Gtk.Box(), True, True, 0)
+        b_set = Gtk.Button(label="Параметры экрана")
+        b_set.get_style_context().add_class("dp-primary")
+        b_set.connect("clicked", lambda *_: self._run_close(["armbian-center", "--page=display"]))
+        foot.pack_start(b_set, False, False, 0)
+        root.pack_start(foot, False, False, 0)
+
+        self.connect("key-press-event", self._on_key)
+        self.connect("destroy", lambda *_: Gtk.main_quit())
+
+    def _on_key(self, _w, ev):
+        if ev.keyval == Gdk.KEY_Escape:
+            self.destroy()
+            return True
+        return False
+
+    def _set_mode(self, _b, key):
+        if key == "1360x768_fit":
+            cmd = ["sh", "-c", "/usr/local/bin/armbian-screen-fit --apply || xrandr --output HDMI-1 --mode 1360x768"]
+        else:
+            cmd = ["xrandr", "--output", "HDMI-1", "--mode", key]
+        self._run_close(cmd)
+
+    def _run_close(self, argv):
+        subprocess.Popen(
+            argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True, close_fds=True,
+        )
+        self.destroy()
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    GLib.set_prgname("kvorix-display")
+    w = DisplayPop()
+    w.show_all()
+    Gtk.main()

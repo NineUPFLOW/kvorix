@@ -1,0 +1,12 @@
+[Unit]
+Description=Make Bluetooth adapter discoverable as НЕБО
+After=bluetooth.service bt-agent.service
+Requires=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bt-beacon.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

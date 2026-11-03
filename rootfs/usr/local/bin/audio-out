@@ -1,0 +1,30 @@
+#!/bin/bash
+N="${1:-0}"
+DEV="plughw:0,${N}"
+mkdir -p /etc/systemd/system/bluealsa-aplay.service.d
+cat > /etc/systemd/system/bluealsa-aplay.service.d/override.conf <<EOF
+[Unit]
+After=bluealsa.service bluetooth.service
+Wants=bluealsa.service
+
+[Service]
+ExecStart=
+ExecStart=/usr/bin/bluealsa-aplay -S -D ${DEV} 00:00:00:00:00:00
+Restart=always
+RestartSec=3
+EOF
+python3 - "$DEV" <<'PY'
+import re, sys
+dev = sys.argv[1]
+path = "/etc/shairport-sync.conf"
+text = open(path).read()
+m = re.search(r'(?ms)^alsa\s*=\s*\{(.*?)^\};', text)
+if m:
+    body = m.group(1)
+    body = re.sub(r'(?m)^\s*output_device\s*=\s*"[^"]*";', f'\toutput_device = "{dev}";', body)
+    text = text[:m.start(1)] + body + text[m.end(1):]
+    open(path, "w").write(text)
+PY
+systemctl daemon-reload
+systemctl restart bluealsa-aplay shairport-sync
+echo "Звук теперь идёт на ${DEV}"

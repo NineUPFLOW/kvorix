@@ -1,0 +1,492 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import subprocess
+import sys
+
+CFG_DIR = os.path.expanduser("~/.config/armbian-tv")
+CFG_FILE = os.path.join(CFG_DIR, "screen-fit.json")
+AUTOSTART_DIR = os.path.expanduser("~/.config/autostart")
+AUTOSTART_FILE = os.path.join(AUTOSTART_DIR, "hdmi-resolution.desktop")
+
+BASE_TIMINGS = {
+    "1360x768": (85.50, 1360, 1424, 1536, 1792, 768, 771, 777, 795, "+hsync", "+vsync"),
+    "1280x720": (74.25, 1280, 1390, 1430, 1650, 720, 725, 730, 750, "+hsync", "+vsync"),
+    "1920x1080": (148.50, 1920, 2008, 2052, 2200, 1080, 1084, 1089, 1125, "+hsync", "+vsync"),
+}
+
+
+def default_cfg():
+    return {
+        "output": "HDMI-1",
+        "base_mode": "1360x768",
+        "h_shift": 0,
+        "v_shift": 0,
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0,
+    }
+
+
+def load_cfg():
+    cfg = default_cfg()
+    if os.path.exists(CFG_FILE):
+        try:
+            with open(CFG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                cfg.update(data)
+        except Exception:
+            pass
+    return cfg
+
+
+def save_cfg(cfg):
+    os.makedirs(CFG_DIR, exist_ok=True)
+    with open(CFG_FILE, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    os.makedirs(AUTOSTART_DIR, exist_ok=True)
+    with open(AUTOSTART_FILE, "w", encoding="utf-8") as f:
+        f.write(
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Автоадаптация границ экрана HDMI\n"
+            "Exec=/usr/local/bin/armbian-screen-fit --apply\n"
+            "OnlyShowIn=XFCE;\n"
+            "X-GNOME-Autostart-enabled=true\n"
+        )
+
+
+def run_cmd(cmd, timeout=8):
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return p.returncode, (p.stdout + p.stderr).strip()
+    except Exception as e:
+        return 1, str(e)
+
+
+def query_xrandr():
+    rc, out = run_cmd(["xrandr", "--query"])
+    return out if rc == 0 else ""
+
+
+def detect_output(xr_text=None):
+    out = query_xrandr() if xr_text is None else xr_text
+    for line in out.splitlines():
+        if " connected" in line:
+            return line.split()[0]
+    return "HDMI-1"
+
+
+def current_screen_size(xr_text=None):
+    out = query_xrandr() if xr_text is None else xr_text
+    for line in out.splitlines():
+        if "current " in line:
+            part = line.split("current ")[1].split(",")[0]
+            nums = [int(x.strip()) for x in part.split("x")]
+            if len(nums) == 2:
+                return nums[0], nums[1]
+    return 1360, 768
+
+
+def _is_mode_active(xr_text, output, target_mode):
+    in_out = False
+    for line in xr_text.splitlines():
+        if line and not line[0].isspace():
+            in_out = line.split()[0] == output and " connected" in line
+            continue
+        if in_out:
+            parts = line.split()
+            if parts and parts[0] == target_mode and "*" in line:
+                return True
+    return False
+
+
+def apply_hdmi_timing(cfg, xr_text=None):
+    if xr_text is None:
+        xr_text = query_xrandr()
+    output = cfg.get("output") or detect_output(xr_text)
+    base = cfg.get("base_mode", "1360x768")
+    if base not in BASE_TIMINGS:
+        if not _is_mode_active(xr_text, output, base):
+            run_cmd(["xrandr", "--output", output, "--mode", base])
+        return
+
+    pclk, hd, hss, hse, htot, vd, vss, vse, vtot, hpol, vpol = BASE_TIMINGS[base]
+    hs = int(cfg.get("h_shift", 0))
+    vs = int(cfg.get("v_shift", 0))
+
+    sync_w = hse - hss
+    new_hss = max(hd + 8, min(htot - sync_w - 8, hss - hs))
+    new_hse = new_hss + sync_w
+
+    vsync_w = vse - vss
+    new_vss = max(vd + 1, min(vtot - vsync_w - 1, vss - vs))
+    new_vse = new_vss + vsync_w
+
+    mode_name = "%s_fit_%d_%d" % (base, new_hss, new_vss)
+    if _is_mode_active(xr_text, output, mode_name):
+        return
+    run_cmd([
+        "xrandr", "--newmode", mode_name,
+        "%.2f" % pclk,
+        str(hd), str(new_hss), str(new_hse), str(htot),
+        str(vd), str(new_vss), str(new_vse), str(vtot),
+        hpol, vpol,
+    ])
+    run_cmd(["xrandr", "--addmode", output, mode_name])
+    rc, _ = run_cmd(["xrandr", "--output", output, "--mode", mode_name])
+    if rc != 0:
+        run_cmd(["xrandr", "--output", output, "--mode", base])
+
+
+def xfconf_map(channel):
+    rc, out = run_cmd(["xfconf-query", "-c", channel, "-l", "-v"])
+    d = {}
+    if rc == 0:
+        for line in out.splitlines():
+            parts = line.split(None, 1)
+            if len(parts) == 2:
+                d[parts[0]] = parts[1].strip()
+    return d
+
+
+def xfconf_set(channel, prop, typ, val, cur_map=None):
+    sval = str(val)
+    if cur_map is not None and cur_map.get(prop) == sval:
+        return
+    rc, _ = run_cmd(["xfconf-query", "-c", channel, "-p", prop, "-s", sval])
+    if rc != 0:
+        run_cmd(["xfconf-query", "-c", channel, "-p", prop, "-n", "-t", typ, "-s", sval])
+    if cur_map is not None:
+        cur_map[prop] = sval
+
+
+def apply_margins_and_panel(cfg, xr_text=None):
+    left = max(0, int(cfg.get("left", 0)))
+    right = max(0, int(cfg.get("right", 0)))
+    top = max(0, int(cfg.get("top", 0)))
+    bottom = max(0, int(cfg.get("bottom", 0)))
+
+    wm_map = xfconf_map("xfwm4")
+    xfconf_set("xfwm4", "/general/margin_left", "int", left, wm_map)
+    xfconf_set("xfwm4", "/general/margin_right", "int", right, wm_map)
+    xfconf_set("xfwm4", "/general/margin_top", "int", top, wm_map)
+    xfconf_set("xfwm4", "/general/margin_bottom", "int", bottom, wm_map)
+
+    rc_pan, _ = run_cmd(["pgrep", "-x", "xfce4-panel"])
+    if rc_pan != 0:
+        return
+    w, h = current_screen_size(xr_text)
+    panel_h = 48
+    if left == 0 and right == 0 and bottom == 0:
+        xfconf_set("xfce4-panel", "/panels/panel-1/length", "double", 100)
+        xfconf_set("xfce4-panel", "/panels/panel-1/position", "string", "p=8;x=0;y=0")
+    else:
+        usable_w = max(400, w - left - right)
+        pct = max(50.0, min(100.0, round(usable_w * 100.0 / float(w), 2)))
+        cx = int(left + usable_w // 2)
+        cy = int(h - bottom - (panel_h // 2))
+        xfconf_set("xfce4-panel", "/panels/panel-1/position-locked", "bool", "false")
+        xfconf_set("xfce4-panel", "/panels/panel-1/length", "double", pct)
+        xfconf_set("xfce4-panel", "/panels/panel-1/position", "string", "p=10;x=%d;y=%d" % (cx, cy))
+        xfconf_set("xfce4-panel", "/panels/panel-1/position-locked", "bool", "true")
+
+
+def apply_all(cfg):
+    xr_text = query_xrandr()
+    cfg["output"] = detect_output(xr_text)
+    apply_hdmi_timing(cfg, xr_text)
+    apply_margins_and_panel(cfg, xr_text)
+
+
+def run_gui():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gdk, GLib, Gtk
+
+    css = b"""
+    window.calib { background: #0f1722; color: #e6eef8; }
+    .bar-neon { background: #00ff88; }
+    .card-box { background: #162231; border: 1px solid #26384f; border-radius: 10px; padding: 10px 12px; }
+    .sec-title { font-weight: 700; font-size: 14px; color: #67e8f9; }
+    .hint { font-size: 12px; color: #9fb3c8; }
+    button.act { background: #1e3a5f; color: #ffffff; border-radius: 8px; padding: 6px 10px; font-weight: 600; }
+    button.act:hover { background: #295285; }
+    button.save { background: #059669; color: #ffffff; border-radius: 8px; padding: 8px 16px; font-weight: 700; }
+    button.save:hover { background: #10b981; }
+    """
+    prov = Gtk.CssProvider()
+    prov.load_from_data(css)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(), prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+
+    cfg = load_cfg()
+    cfg["output"] = detect_output()
+
+    THICK = 6
+    bars = {}
+    for side in ("top", "bottom", "left", "right"):
+        bw = Gtk.Window(type=Gtk.WindowType.POPUP)
+        bw.set_decorated(False)
+        bw.set_keep_above(True)
+        bw.set_accept_focus(False)
+        bw.get_style_context().add_class("bar-neon")
+        box = Gtk.EventBox()
+        box.get_style_context().add_class("bar-neon")
+        bw.add(box)
+        bars[side] = bw
+
+    def update_bars():
+        sw, sh = current_screen_size()
+        l = max(0, int(cfg.get("left", 0)))
+        r = max(0, int(cfg.get("right", 0)))
+        t = max(0, int(cfg.get("top", 0)))
+        b = max(0, int(cfg.get("bottom", 0)))
+        uw = max(200, sw - l - r)
+        uh = max(150, sh - t - b)
+
+        bars["top"].move(l, t)
+        bars["top"].resize(uw, THICK)
+
+        bars["bottom"].move(l, max(0, sh - b - THICK))
+        bars["bottom"].resize(uw, THICK)
+
+        bars["left"].move(l, t)
+        bars["left"].resize(THICK, uh)
+
+        bars["right"].move(max(0, sw - r - THICK), t)
+        bars["right"].resize(THICK, uh)
+
+        for bw in bars.values():
+            bw.show_all()
+
+    win = Gtk.Window(title="Подгонка границ и смещения экрана ТВ")
+    win.get_style_context().add_class("calib")
+    win.set_default_size(680, 540)
+    win.set_position(Gtk.WindowPosition.CENTER)
+    win.set_keep_above(True)
+
+    root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    root.set_margin_top(12)
+    root.set_margin_bottom(12)
+    root.set_margin_start(14)
+    root.set_margin_end(14)
+    sc = Gtk.ScrolledWindow()
+    sc.set_propagate_natural_width(True); sc.set_propagate_natural_height(True)
+    sc.add(root)
+    win.add(sc)
+
+    status_lbl = Gtk.Label(xalign=0)
+    status_lbl.get_style_context().add_class("hint")
+
+    def refresh_status(msg=None):
+        sw, sh = current_screen_size()
+        txt = "Экран: %dx%d · Сдвиг сигнала: X=%+d, Y=%+d · Поля: Л=%d П=%d В=%d Н=%d пкс" % (
+            sw, sh, cfg["h_shift"], cfg["v_shift"],
+            cfg["left"], cfg["right"], cfg["top"], cfg["bottom"]
+        )
+        if msg:
+            txt += "  —  " + msg
+        status_lbl.set_text(txt)
+
+    c1 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    c1.get_style_context().add_class("card-box")
+    t1 = Gtk.Label(label="1. Автоадаптация под телевизор (выберите подходящий вариант)", xalign=0)
+    t1.get_style_context().add_class("sec-title")
+    c1.pack_start(t1, False, False, 0)
+    h1 = Gtk.Label(
+        label="По краям экрана сейчас горят 4 ярко‑зелёные полосы. Подберите режим или сдвиньте рамки так, чтобы видеть все 4 зелёные линии.",
+        xalign=0, wrap=True
+    )
+    h1.get_style_context().add_class("hint")
+    c1.pack_start(h1, False, False, 0)
+
+    row_presets = Gtk.Box(spacing=6)
+    sliders = {}
+
+    def sync_sliders():
+        for k, adj in sliders.items():
+            adj.set_value(cfg[k])
+
+    def apply_preset(base_mode, l, r, t, b, hs=0, vs=0, note=""):
+        cfg["base_mode"] = base_mode
+        cfg["h_shift"] = hs
+        cfg["v_shift"] = vs
+        cfg["left"], cfg["right"], cfg["top"], cfg["bottom"] = l, r, t, b
+        apply_all(cfg)
+        sync_sliders()
+        GLib.timeout_add(250, lambda: (update_bars(), win.set_position(Gtk.WindowPosition.CENTER), refresh_status(note), False)[-1])
+
+    presets = [
+        ("1360×768 Авто (без смещения)", "1360x768", 0, 0, 0, 0, "исправленный VESA тайминг"),
+        ("1360×768 + поля ТВ", "1360x768", 24, 24, 14, 14, "1360×768 с отступом от рамок"),
+        ("1280×720 HD + поля ТВ", "1280x720", 26, 26, 15, 15, "стандарт 720p с защитой краёв"),
+        ("1920×1080 FHD + поля ТВ", "1920x1080", 40, 40, 22, 22, "1080p с защитой краёв"),
+    ]
+    for title, bm, l, r, t, b, note in presets:
+        btn = Gtk.Button(label=title)
+        btn.get_style_context().add_class("act")
+        btn.connect("clicked", lambda _w, bm=bm, l=l, r=r, t=t, b=b, note=note: apply_preset(bm, l, r, t, b, 0, 0, note))
+        row_presets.pack_start(btn, True, True, 0)
+    c1.pack_start(row_presets, False, False, 0)
+    root.pack_start(c1, False, False, 0)
+
+    c2 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    c2.get_style_context().add_class("card-box")
+    t2 = Gtk.Label(label="2. Сдвинуть всю картинку целиком (если съехала в сторону)", xalign=0)
+    t2.get_style_context().add_class("sec-title")
+    c2.pack_start(t2, False, False, 0)
+
+    row_shift = Gtk.Box(spacing=8)
+
+    def nudge_signal(dx, dy):
+        cfg["h_shift"] = max(-180, min(180, int(cfg["h_shift"]) + dx))
+        cfg["v_shift"] = max(-20, min(20, int(cfg["v_shift"]) + dy))
+        apply_hdmi_timing(cfg)
+        GLib.timeout_add(200, lambda: (update_bars(), refresh_status("сигнал сдвинут"), False)[-1])
+
+    for lbl, dx, dy in [
+        ("◀ Влево", -12, 0),
+        ("Вправо ▶", +12, 0),
+        ("▲ Вверх", 0, -2),
+        ("▼ Вниз", 0, +2),
+        ("Центр (0, 0)", None, None),
+    ]:
+        b = Gtk.Button(label=lbl)
+        b.get_style_context().add_class("act")
+        if dx is None:
+            b.connect("clicked", lambda _w: (cfg.update({"h_shift": 0, "v_shift": 0}), apply_hdmi_timing(cfg), update_bars(), refresh_status("сдвиг сброшен")))
+        else:
+            b.connect("clicked", lambda _w, dx=dx, dy=dy: nudge_signal(dx, dy))
+        row_shift.pack_start(b, True, True, 0)
+    c2.pack_start(row_shift, False, False, 0)
+    root.pack_start(c2, False, False, 0)
+
+    c3 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+    c3.get_style_context().add_class("card-box")
+    t3 = Gtk.Label(label="3. Поля краёв экрана (подвиньте ползунок, пока зелёная линия не появится из-за рамки ТВ)", xalign=0)
+    t3.get_style_context().add_class("sec-title")
+    c3.pack_start(t3, False, False, 0)
+
+    grid = Gtk.Grid(column_spacing=10, row_spacing=6)
+    sides_meta = [
+        ("left", "Слева", 160),
+        ("right", "Справа", 160),
+        ("top", "Сверху", 100),
+        ("bottom", "Снизу", 100),
+    ]
+    apply_timer = {"id": None}
+
+    def schedule_margin_apply():
+        update_bars()
+        refresh_status()
+        if apply_timer["id"] is not None:
+            GLib.source_remove(apply_timer["id"])
+
+        def _do():
+            apply_timer["id"] = None
+            apply_margins_and_panel(cfg)
+            return False
+
+        apply_timer["id"] = GLib.timeout_add(250, _do)
+
+    for idx, (key, title, maxv) in enumerate(sides_meta):
+        lbl = Gtk.Label(label="%s:" % title, xalign=0)
+        adj = Gtk.Adjustment(value=cfg[key], lower=0, upper=maxv, step_increment=2, page_increment=8)
+        sliders[key] = adj
+        scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adj)
+        scale.set_digits(0)
+        scale.set_hexpand(True)
+        scale.set_value_pos(Gtk.PositionType.RIGHT)
+
+        def on_val(a, k=key):
+            cfg[k] = int(round(a.get_value()))
+            schedule_margin_apply()
+
+        adj.connect("value-changed", on_val)
+
+        btn_minus = Gtk.Button(label="−4")
+        btn_plus = Gtk.Button(label="+4")
+        btn_minus.connect("clicked", lambda _w, a=adj: a.set_value(max(0, a.get_value() - 4)))
+        btn_plus.connect("clicked", lambda _w, a=adj, m=maxv: a.set_value(min(m, a.get_value() + 4)))
+
+        grid.attach(lbl, 0, idx, 1, 1)
+        grid.attach(btn_minus, 1, idx, 1, 1)
+        grid.attach(scale, 2, idx, 1, 1)
+        grid.attach(btn_plus, 3, idx, 1, 1)
+
+    c3.pack_start(grid, False, False, 0)
+
+    row_all = Gtk.Box(spacing=8)
+    b_shrink = Gtk.Button(label="Уменьшить рамку со всех сторон (+6 пкс)")
+    b_shrink.get_style_context().add_class("act")
+    b_shrink.connect("clicked", lambda _w: [sliders[k].set_value(sliders[k].get_value() + (6 if k in ("left", "right") else 4)) for k in sliders])
+
+    b_expand = Gtk.Button(label="Расширить рамку к краям (−6 пкс)")
+    b_expand.get_style_context().add_class("act")
+    b_expand.connect("clicked", lambda _w: [sliders[k].set_value(max(0, sliders[k].get_value() - (6 if k in ("left", "right") else 4))) for k in sliders])
+
+    b_zero = Gtk.Button(label="Убрать все поля (0)")
+    b_zero.get_style_context().add_class("act")
+    b_zero.connect("clicked", lambda _w: [sliders[k].set_value(0) for k in sliders])
+
+    row_all.pack_start(b_shrink, True, True, 0)
+    row_all.pack_start(b_expand, True, True, 0)
+    row_all.pack_start(b_zero, False, False, 0)
+    c3.pack_start(row_all, False, False, 0)
+    root.pack_start(c3, False, False, 0)
+
+    root.pack_start(status_lbl, False, False, 0)
+
+    foot = Gtk.Box(spacing=10)
+    b_save = Gtk.Button(label="✓ Сохранить и закрепить навсегда")
+    b_save.get_style_context().add_class("save")
+
+    def on_save(_w):
+        apply_all(cfg)
+        save_cfg(cfg)
+        run_cmd(["notify-send", "Границы экрана сохранены",
+                 "Настройки применены и будут автоматически загружаться при каждом включении."])
+        for bw in bars.values():
+            bw.destroy()
+        win.destroy()
+        Gtk.main_quit()
+
+    b_save.connect("clicked", on_save)
+
+    b_close = Gtk.Button(label="Закрыть")
+    b_close.get_style_context().add_class("act")
+
+    def on_close(*_a):
+        for bw in bars.values():
+            bw.destroy()
+        win.destroy()
+        Gtk.main_quit()
+
+    b_close.connect("clicked", on_close)
+    win.connect("destroy", on_close)
+
+    foot.pack_end(b_save, False, False, 0)
+    foot.pack_end(b_close, False, False, 0)
+    root.pack_end(foot, False, False, 0)
+
+    apply_all(cfg)
+    save_cfg(cfg)
+    win.show_all()
+    update_bars()
+    refresh_status("зелёные линии показывают видимую границу")
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    if "--apply" in sys.argv:
+        c = load_cfg()
+        apply_all(c)
+        sys.exit(0)
+    run_gui()

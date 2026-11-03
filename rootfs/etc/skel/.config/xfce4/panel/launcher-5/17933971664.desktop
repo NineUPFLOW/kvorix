@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Системный монитор
+Comment=Процессор, память, температуры, диски, сеть, процессы
+Exec=armbian-monitor
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;Monitor;
+X-XFCE-Source=file:///usr/share/applications/armbian-monitor.desktop

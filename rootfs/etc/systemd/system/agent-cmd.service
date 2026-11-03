@@ -1,0 +1,14 @@
+[Unit]
+Description=Резервная командная консоль агента (ntfy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/agent-cmd.py
+Restart=always
+RestartSec=10
+Nice=19
+
+[Install]
+WantedBy=multi-user.target

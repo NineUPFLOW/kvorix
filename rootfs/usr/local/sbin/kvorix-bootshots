@@ -1,0 +1,8 @@
+#!/bin/bash
+mkdir -p /var/tmp/bootshots; rm -f /var/tmp/bootshots/*
+for i in $(seq 1 200); do [ -S /tmp/.X11-unix/X0 ] && break; sleep 0.1; done
+for i in $(seq 1 30); do
+  DISPLAY=:0 XAUTHORITY=/var/run/lightdm/root/:0 scrot -q 40 -o /var/tmp/bootshots/$(printf %02d $i)-$(cut -d. -f1 /proc/uptime).jpg 2>/dev/null
+  sleep 0.7
+done
+systemctl disable kvorix-bootshots.service

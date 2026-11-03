@@ -1,0 +1,7 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Этот компьютер
+Exec=kvorix-disks
+Icon=user-desktop
+Terminal=false

@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import stat
+import tarfile
+import tempfile
+
+TARGETS = ('boot/uEnv.txt', 'usr/local/share/armbian-gui/center.py',
+           'usr/local/share/rsaarm/shell/rsaarm-taskbar.py')
+
+def verify(archive, manifest):
+    archive, manifest = Path(archive), Path(manifest)
+    if archive.is_symlink() or manifest.is_symlink():
+        raise ValueError('Symlink inputs are not permitted')
+    if not manifest.is_file():
+        raise ValueError('Manifest missing: ' + manifest.name)
+    data = json.loads(manifest.read_text())
+    if data['archive'] != archive.name:
+        raise ValueError('Manifest archive name mismatch')
+    with archive.open('rb') as f:
+        digest = hashlib.file_digest(f, 'sha256').hexdigest()
+        if digest != data['sha256']:
+            raise ValueError('SHA-256 mismatch')
+        f.seek(0)
+        recovered = {}
+        count = 0
+        total = 0
+        seen = set()
+        with tempfile.TemporaryDirectory(prefix='kvorix-recovery-drill-') as temp:
+            with tarfile.open(fileobj=f, mode='r:gz') as tar:
+                for member in tar:
+                    name = member.name
+                    path = PurePosixPath(name)
+                    if path.is_absolute() or '..' in path.parts or name in seen:
+                        raise ValueError('Unsafe or duplicate archive member: ' + name)
+                    seen.add(name)
+                    count += 1
+                    if member.isfile():
+                        if member.size < 0 or member.size > 256 * 1024**2:
+                            raise ValueError('Unreasonable member size: ' + name)
+                        total += member.size
+                        if total > 1024**3:
+                            raise ValueError('Unreasonable archive size')
+                        stream = tar.extractfile(member)
+                        actual = 0
+                        h = hashlib.sha256()
+                        output = open(Path(temp) / ('file-' + str(count)), 'xb') if name in TARGETS else None
+                        try:
+                            while True:
+                                chunk = stream.read(1024 * 1024)
+                                if not chunk:
+                                    break
+                                actual += len(chunk)
+                                h.update(chunk)
+                                if output:
+                                    output.write(chunk)
+                        finally:
+                            if output:
+                                output.close()
+                        if actual != member.size:
+                            raise ValueError('Truncated member: ' + name)
+                        if name in TARGETS:
+                            restored = Path(temp) / ('file-' + str(count))
+                            with restored.open('rb') as check:
+                                if hashlib.file_digest(check, 'sha256').hexdigest() != h.hexdigest():
+                                    raise ValueError('Recovery comparison failed: ' + name)
+                            recovered[name] = actual
+                    elif not (member.isdir() or member.issym() or member.islnk()):
+                        raise ValueError('Unexpected special file: ' + name)
+            if count != data['members']:
+                raise ValueError('Manifest member count mismatch')
+            absent = sorted(set(TARGETS) - recovered.keys())
+            if absent:
+                raise ValueError('Required recovery targets missing: ' + ', '.join(absent))
+        return dict(verified=True, archive=str(archive), members=count,
+                    unpacked_bytes=total, recovered_files=recovered,
+                    temporary_recovery_cleaned=True)
+
+def vault_issues(base):
+    
+    issues = []
+    try:
+        owner = base.lstat()
+        items = sorted(base.iterdir())
+    except OSError as e:
+        return ['vault directory unreadable: ' + str(e)]
+    if stat.S_ISLNK(owner.st_mode) or stat.S_IMODE(owner.st_mode) != 0o700:
+        issues.append('vault directory mode=%o link=%s' % (
+            stat.S_IMODE(owner.st_mode), stat.S_ISLNK(owner.st_mode)))
+    for item in items:
+        try:
+            st = item.lstat()
+        except OSError as e:
+            issues.append(item.name + ' unreadable: ' + str(e))
+            continue
+        if stat.S_ISDIR(st.st_mode):
+            continue
+        mode = stat.S_IMODE(st.st_mode)
+        if (stat.S_ISLNK(st.st_mode) or mode != 0o600
+                or st.st_uid != owner.st_uid or st.st_gid != owner.st_gid):
+            issues.append('%s mode=%o owner=%s:%s link=%s' % (
+                item.name, mode, st.st_uid, st.st_gid, stat.S_ISLNK(st.st_mode)))
+    return issues
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('archive', nargs='?', help='default: newest private snapshot')
+    p.add_argument('--all', action='store_true', help='verify every private snapshot; preserve all files')
+    args = p.parse_args()
+    if args.all and args.archive:
+        p.error('--all and an archive path are mutually exclusive')
+    if os.geteuid() != 0:
+        p.exit(1, 'Run with sudo; archive may contain secrets.\n')
+    os.umask(0o077)
+    base = Path('/var/backups/kvorix-config-private')
+    try:
+        archives = sorted(base.glob('config-*.tar.gz'))
+        if args.all:
+            if not archives:
+                raise ValueError('No snapshots found')
+            reports = []
+            failures = []
+            missing_manifests = []
+            for archive in archives:
+                manifest = Path(str(archive) + '.json')
+                if not manifest.is_file():
+                    missing_manifests.append(str(archive))
+                    failures.append(dict(archive=str(archive), error='Manifest missing'))
+                    continue
+                try:
+                    reports.append(verify(archive, manifest))
+                except Exception as e:
+                    failures.append(dict(archive=str(archive), error=str(e)))
+            manifest_files = sorted(base.glob('config-*.tar.gz.json'))
+            orphan_manifests = [str(m) for m in manifest_files if not Path(str(m)[:-5]).exists()]
+            permission_issues = vault_issues(base)
+            print(json.dumps(dict(verified=not failures and not orphan_manifests and not permission_issues,
+                                  checked=len(archives), missing_manifests=missing_manifests,
+                                  permission_issues=permission_issues, reports=reports,
+                                  failures=failures, orphan_manifests=orphan_manifests), ensure_ascii=False))
+            if failures or orphan_manifests or permission_issues:
+                p.exit(1)
+        else:
+            if not args.archive and not archives:
+                raise ValueError('No snapshots found')
+            archive = Path(args.archive) if args.archive else archives[-1]
+            result = verify(archive, Path(str(archive) + '.json'))
+            print(json.dumps(result, ensure_ascii=False))
+    except Exception as e:
+        p.exit(1, str(e) + '\n')
+
+if __name__ == '__main__':
+    main()

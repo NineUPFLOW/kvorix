@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+
+import datetime
+import fcntl
+import hashlib
+import json
+import os
+import shutil
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+import tempfile
+
+if os.geteuid() != 0:
+    sys.exit('Run with sudo; snapshots are private to root.')
+os.umask(0o077)
+base = Path('/var/backups/kvorix-config-private')
+base.mkdir(mode=0o700, parents=True, exist_ok=True)
+if base.is_symlink() or base.stat().st_uid != 0:
+    sys.exit('Unsafe backup directory')
+base.chmod(0o700)
+lock = open(base / '.lock', 'a')
+try:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    sys.exit('Snapshot already running')
+if shutil.disk_usage(base).free < 1024**3:
+    sys.exit('Less than 1 GiB free; refusing to fill disk')
+used = sum(p.stat().st_size for p in base.iterdir() if p.is_file())
+if used > 512 * 1024**2:
+    sys.exit('Snapshot storage exceeded 512 MiB; old archives preserved, review required')
+paths = ['etc/kvorix', 'etc/systemd/system', 'etc/lightdm', 'etc/xdg/autostart',
+         'usr/local/share/armbian-gui', 'usr/local/share/rsaarm',
+         'usr/local/lib/front-panel', 'usr/local/bin', 'usr/local/sbin',
+         'boot/uEnv.txt', 'home/agent/.config/xfce4', 'home/agent/.config/autostart']
+present = [p for p in paths if Path('/' + p).exists()]
+missing = [p for p in paths if p not in present]
+stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
+fd, name = tempfile.mkstemp(prefix='.snapshot-', suffix='.tar.gz', dir=base)
+os.close(fd)
+tmp = Path(name)
+try:
+    r = subprocess.run(['tar', '--create', '--gzip', '--file', str(tmp), '--directory', '/', '--', *present], capture_output=True, text=True, timeout=180)
+    if r.returncode:
+        raise RuntimeError('tar failed or files changed during snapshot: ' + r.stderr[-3000:])
+    with tarfile.open(tmp, 'r:gz') as archive:
+        count = 0
+        for member in archive:
+            if member.isfile():
+                stream = archive.extractfile(member)
+                while stream.read(1024 * 1024):
+                    pass
+            count += 1
+    digest = hashlib.file_digest(open(tmp, 'rb'), 'sha256').hexdigest()
+    with tmp.open('rb') as f:
+        os.fsync(f.fileno())
+    final = base / ('config-' + stamp + '.tar.gz')
+    os.replace(tmp, final)
+    manifest = dict(archive=final.name, sha256=digest, members=count, included=present, absent=missing)
+    meta = final.with_suffix(final.suffix + '.json')
+    with meta.open('x') as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    dfd = os.open(base, os.O_DIRECTORY)
+    try:
+        os.fsync(dfd)
+    finally:
+        os.close(dfd)
+    print(json.dumps(dict(path=str(final), bytes=final.stat().st_size, members=count, sha256=digest, verified=True), ensure_ascii=False))
+except Exception as e:
+    tmp.unlink(missing_ok=True)
+    sys.exit(str(e))

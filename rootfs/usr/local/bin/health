@@ -1,0 +1,19 @@
+#!/bin/bash
+R=$'\033[0m'; D=$'\033[38;5;242m'; V=$'\033[38;5;252m'
+A=$'\033[38;5;79m'; OK=$'\033[38;5;114m'; W=$'\033[38;5;179m'; E=$'\033[38;5;203m'
+echo
+printf '  %sздоровье системы%s\n' "$A" "$R"
+printf '  %s────────────────────────────────────────%s\n' "$D" "$R"
+bad=0
+for s in bluetooth bt-agent bluealsa bluealsa-aplay bt-beacon shairport-sync avahi-daemon smbd minidlna navidrome; do
+  st=$(systemctl is-active $s 2>/dev/null)
+  if [ "$st" = active ]; then printf '  %s●%s %-16s %s\n' "$OK" "$R" "$s" "$V$st$R"
+  else printf '  %s●%s %-16s %s\n' "$E" "$R" "$s" "$V$st$R"; bad=$((bad+1)); fi
+done
+printf '  %s────────────────────────────────────────%s\n' "$D" "$R"
+printf '  %sпамять%s   %s\n' "$D" "$R" "$(free -m | awk '/Mem:/{print $3" Ми из "$2}')"
+printf '  %sдиск%s     %s\n' "$D" "$R" "$(df -h / | awk 'NR==2{print $3" из "$2" ("$5")"}')"
+printf '  %sчип%s      %s °C\n' "$D" "$R" "$(awk '{printf "%d", $1/1000}' /sys/class/thermal/thermal_zone0/temp)"
+printf '  %sошибки%s   %s строк уровня err за загрузку\n' "$D" "$R" "$(journalctl -b -p err --no-pager 2>/dev/null | wc -l)"
+printf '  %sсеть%s     %s\n' "$D" "$R" "$(ip -4 -br a show wlan0 2>/dev/null | awk '{print $3}')"
+if [ $bad -eq 0 ]; then printf '\n  %sвсе службы в порядке%s\n\n' "$OK" "$R"; else printf '\n  %sне работает служб: %s%s\n\n' "$E" "$bad" "$R"; fi
