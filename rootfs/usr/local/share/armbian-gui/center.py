@@ -2054,7 +2054,7 @@ class Center(Gtk.Window):
         ck.add(step(1, "Разрешите подключение", "Переключатель «Разрешить ИИ-агентам подключаться» выше"))
         cp = ui.button("Скопировать сообщение", copy_msg, "btn", "edit-copy")
         cp.get_style_context().add_class("suggested-action")
-        ck.add(step(2, "Скопируйте сообщение или отсканируйте QR", "QR откройте только когда рядом никого — в нём ключ", cp))
+        ck.add(step(2, "Скопируйте сообщение или отсканируйте QR", "QR и текст всегда с текущим ключом; QR открывайте, когда рядом никого", cp))
         ck.add(step(3, "Вставьте его агенту вместе со своей задачей", "Агент выполнит команды и подключится сам"))
 
         qr_tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -2100,18 +2100,22 @@ class Center(Gtk.Window):
                 qr_tile.hide()
                 qr_btn.set_label("Показать QR")
                 return
+            draw_qr(message())
+            qr_tile.show()
+            qr_btn.set_label("Скрыть QR")
+
+        def draw_qr(m):
+            qr_state["msg"] = m
             for ch in qr_slot.get_children():
                 qr_slot.remove(ch)
             png = "/tmp/kvorix-ai-msg.png"
-            subprocess.run(["qrencode", "-s", "3", "-m", "2", "-l", "L", "-o", png, message()], capture_output=True)
+            subprocess.run(["qrencode", "-s", "3", "-m", "2", "-l", "L", "-o", png, m], capture_output=True)
             ev = Gtk.EventBox()
             ev.add(Gtk.Image.new_from_file(png))
             ev.set_tooltip_text("Нажмите — QR на весь экран")
             ev.connect("button-press-event", big_qr)
             qr_slot.pack_start(ev, False, False, 0)
             qr_slot.show_all()
-            qr_tile.show()
-            qr_btn.set_label("Скрыть QR")
             os.remove(png)
 
         qr_btn = ui.button("Показать QR", toggle_qr, "ghost", "view-reveal-symbolic")
@@ -2125,12 +2129,31 @@ class Center(Gtk.Window):
                 return
             ai_out("newkey")
             if qr_tile.get_visible():
-                toggle_qr(); toggle_qr()
+                draw_qr(message())
             C.notify("Доступ ИИ", "Ключ заменён — скопируйте сообщение заново")
 
         bb.pack_start(ui.button("Заменить ключ", new_key, "ghost", "view-refresh"), False, False, 0)
         ck.add(bb)
         ck.add(qr_tile)
+        qr_state = {"msg": ""}
+
+        def ai_live():
+            # ключ, тема и разрешение могут поменяться — QR и кнопки всегда по текущему состоянию
+            if not ck.get_mapped():
+                return True
+            on = slots() > 0
+            for w_ in (cp, qr_btn):
+                w_.set_sensitive(on)
+            if not on and qr_tile.get_visible():
+                toggle_qr()
+            elif qr_tile.get_visible():
+                m = message()
+                if m != qr_state["msg"]:
+                    draw_qr(m)
+            return True
+
+        GLib.timeout_add_seconds(4, ai_live)
+        ai_live()
         ck.add(ui._lbl("Войти может только тот, у кого есть это сообщение. «Заменить ключ» — и старое больше не пускает.",
                        "muted", wrap=True))
 

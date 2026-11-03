@@ -1,4 +1,4 @@
-# Kvorix: bash; затем ~/.kvorix/kv 'команда' (agent, sudo без пароля); файл: ~/.kvorix/kv 'cat >/tmp/f' <f
+# Kvorix mini-PC: run in bash, then ~/.kvorix/kv 'cmd' (user agent, passwordless sudo); file: ~/.kvorix/kv 'cat >/tmp/f' <f
 mkdir -p ~/.kvorix&&cd ~/.kvorix&&cat>key<<'K'
 @KEY@
 K
