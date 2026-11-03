@@ -1,5 +1,5 @@
 #!/bin/bash
-# Kvorix — установка поверх чистого Armbian ophub (Amlogic S905X3, Debian 13 trixie).
+# Kvorix — мини-ПК из Tanix TX3: установка поверх чистого Armbian ophub (Amlogic S905X3, Debian 13 trixie).
 #   sudo ./install.sh                 пакеты + файлы + службы
 #   sudo ./install.sh --no-packages   только файлы и службы (пакеты уже стоят)
 # © 2026 NineUPFLOW, GPL-3.0
@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 [ "$(id -u)" = 0 ] || { echo "Запустите через sudo"; exit 1; }
 id agent >/dev/null 2>&1 || { echo "Нет пользователя agent — создайте его при первой настройке Armbian"; exit 1; }
-grep -q aarch64 <<<"$(uname -m)" || { echo "Нужна приставка arm64 (S905X3)"; exit 1; }
+grep -q aarch64 <<<"$(uname -m)" || { echo "Нужен arm64 (Amlogic S905X3)"; exit 1; }
 
 step() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 
@@ -25,7 +25,8 @@ if [ "${1:-}" != "--no-packages" ]; then
 fi
 
 step "Файлы Kvorix"
-# своё не затираем: настройки сети и секреты этой приставки в репозитории отсутствуют
+# настройки сети и секреты этого мини-ПК в репозитории отсутствуют — их не затираем
+mkdir -p /etc/kvorix /var/lib/kvorix
 rsync -rlptD --exclude=etc/skel/ rootfs/ /
 chown -R root:root /usr/local /etc/kvorix /etc/systemd/system
 chmod 440 /etc/sudoers.d/* 2>/dev/null || true
@@ -42,12 +43,15 @@ step "Ссылки"
 grep -q "^precedence ::ffff:0:0/96  100" /etc/gai.conf 2>/dev/null || echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
 ln -sf /usr/share/fontconfig/conf.avail/10-hinting-slight.conf /etc/fonts/conf.d/
 ln -sf /usr/share/fontconfig/conf.avail/70-no-bitmaps-except-emoji.conf /etc/fonts/conf.d/
-ln -sfn ../../Kvorix-Icons/scalable/apps /usr/share/icons/Kvorix-Icons-Dark/scalable/apps
+D=/usr/share/icons/Kvorix-Icons-Dark/scalable/apps
+[ -L "$D" ] || { rm -rf "$D"; ln -s ../../Kvorix-Icons/scalable/apps "$D"; }
+# имя в сети: armbian → kvorix
+[ "$(hostname)" = armbian ] && hostnamectl set-hostname kvorix && sed -i "s/^127.0.1.1.*/127.0.1.1   kvorix armbian/" /etc/hosts
 
 step "Службы"
 systemctl daemon-reload
 systemctl restart systemd-resolved
-# как на эталонной приставке; Доступ ИИ (agent-*) не включается — его включают в Настройки → Доступ ИИ
+# как на эталонном мини-ПК; Доступ ИИ (agent-*) не включается — его включают в Настройки → Доступ ИИ
 for u in hdmi-autodetect front-panel kvorix-vnc kvorix-novnc kvorix-icons.path bt-agent bt-beacon \
          nebo-tune box-watchdog.timer box-backup.timer kvorix-config-snapshot.timer kvorix-mode-heal.timer kvorix-firstboot; do
     systemctl enable "$u" >/dev/null 2>&1 || echo "  пропущено: $u"
@@ -64,4 +68,4 @@ plymouth-set-default-theme kvorix && update-initramfs -u
 
 step "Готово"
 cat /etc/kvorix-release
-echo "Перезагрузите приставку: sudo reboot"
+echo "Перезагрузите мини-ПК: sudo reboot"

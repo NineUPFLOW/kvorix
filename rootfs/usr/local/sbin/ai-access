@@ -21,7 +21,7 @@ case "$1" in
           lbl=${NAME[$fp]:-неизвестный ключ ${fp#SHA256:}}
           prog=$(echo "$ver" | sed 's/SSH-2.0-//; s/_/ /')
           where="интернет"
-          [ -n "$PUB" ] && [ "$ip" = "$PUB" ] && where="ваша домашняя сеть (тот же внешний адрес, что у бокса)"
+          [ -n "$PUB" ] && [ "$ip" = "$PUB" ] && where="ваша домашняя сеть (тот же внешний адрес, что у мини-ПК)"
           hello=$(awk -F'\t' -v k="$lbl" '$2==k{h=$3" · "$4} END{print h}' /var/lib/kvorix/agent-hello 2>/dev/null)
           printf 'ИИ-агент\t%s\t%s\tслот %s · %s · %s%s\t—\n' "$lbl" "$ip" "$s" "$prog" "$where" "${hello:+ · $hello}"
         done
@@ -56,7 +56,7 @@ for ts, u, r, k, s, n in out[-int(sys.argv[1]):]:
   hello)
     printf '%s\t%s\t%s\t%s\n' "$(date '+%F %T')" "$2" "$3" "$4" >> /var/lib/kvorix/agent-hello ;;
   key|newkey)
-    # ключ, который приставка выдаёт ИИ-агенту (открытая часть — в списке гостей)
+    # ключ, который мини-ПК выдаёт ИИ-агенту (открытая часть — в списке гостей)
     K=/etc/agent-access/agent_ed25519 AK=/home/agent/.ssh/authorized_keys
     if [ "$1" = newkey ] && [ -f "$K.pub" ]; then
       for f in "$KEYS" "$AK"; do grep -vxF "$(cat "$K.pub")" "$f" > "$f.tmp"; cat "$f.tmp" > "$f"; rm -f "$f.tmp"; done
@@ -67,7 +67,7 @@ for ts, u, r, k, s, n in out[-int(sys.argv[1]):]:
       # upterm читает список ключей при старте сессии — перезапускаем слоты, чтобы новый ключ пускал
       systemctl --no-block restart agent-slot@0 agent-slot@1 2>/dev/null
     fi
-    # ключ нужен и upterm (вход в сессию), и sshd приставки (туннель на 127.0.0.1:22)
+    # ключ нужен и upterm (вход в сессию), и sshd мини-ПК (туннель на 127.0.0.1:22)
     for f in "$KEYS" "$AK"; do grep -qxF "$(cat "$K.pub")" "$f" 2>/dev/null || cat "$K.pub" >> "$f"; done
     [ "$1" = key ] && cat "$K" ;;
   topic) sed -n "s/^TOPIC=//p" /etc/kvorix/ai.conf ;;

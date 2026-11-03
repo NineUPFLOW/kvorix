@@ -51,7 +51,7 @@
 | `kvorix-health-check [--json]` | проверка здоровья |
 | `kvorix-make-icons` | построить значки Kvorix для всех программ |
 | `kvorix-build-image` | собрать образ прошивки без личных данных |
-| `kvorix-firstboot` | создать ключи и пароли этой приставки |
+| `kvorix-firstboot` | создать ключи и пароли этого мини-ПК |
 | `kvorix-novnc-token` | новый секретный адрес показа экрана |
 | `ai-access on` / `ai-access off` | включить / выключить Доступ ИИ |
 | `kvorix-taskmanager`, `kvorix-disks`, `kvorix-snip` | диспетчер задач, диски, «Ножницы» |
@@ -61,7 +61,7 @@
 
 | Путь | Что |
 |---|---|
-| `/etc/kvorix/` | секреты приставки (не в репозитории) |
+| `/etc/kvorix/` | секреты мини-ПК (не в репозитории) |
 | `/var/lib/hdmi-autodetect/` | выбранные режимы для каждого монитора (ключ — хэш EDID) |
 | `/var/lib/front-panel/config.json` | настройки индикатора |
 | `~/.config/rsaarm/` | тема, закреплённые, эффекты оболочки |

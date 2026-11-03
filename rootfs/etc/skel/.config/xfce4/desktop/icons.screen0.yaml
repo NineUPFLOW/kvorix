@@ -4,6 +4,16 @@
 configs:
 - level: 0
   monitors:
+  - id: "dbf60b1cef61451fbf48930b2b23f8dacbc595de"
+    display_name: "MS Telematica MStar Demo 0x00000001 (HDMI-1)"
+    geometry:
+      x: 0
+      y: 0
+      width: 1280
+      height: 720
+  icons: {}
+- level: 0
+  monitors:
   - id: "d5a5f473f6dc67a4f062ea1691070814c059eae7"
     display_name: "HDMI-1"
     geometry:
@@ -25,10 +35,6 @@ configs:
     "trash:///":
       row: 0
       col: 0
-    "4CCB-3222":
-      row: 0
-      col: 1
-      last_seen: 1793637439694550
     "77b18f89-a9d0-4d7b-ab57-32482b0f0370":
       row: 2
       col: 1
@@ -37,21 +43,25 @@ configs:
       row: 1
       col: 1
       last_seen: 1793722379675005
-    "/home/agent/Desktop/\u041F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A.desktop":
-      row: 3
-      col: 0
-    "/home/agent/Desktop/\u042D\u0442\u043E\u0442 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440.desktop":
-      row: 4
-      col: 0
-    "/home/agent/Desktop/\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438.desktop":
-      row: 1
-      col: 0
-    "/home/agent/Desktop/\u0414\u0438\u0441\u043F\u0435\u0442\u0447\u0435\u0440 \u0437\u0430\u0434\u0430\u0447.desktop":
-      row: 2
-      col: 0
-    "/home/agent/Desktop/\u0411\u0440\u0430\u0443\u0437\u0435\u0440 Chromium.desktop":
-      row: 5
-      col: 0
     "/home/agent/Desktop/sedmExqJR":
       row: 0
       col: 1
+    "/home/agent/Desktop/\u041F\u0440\u043E\u0432\u043E\u0434\u043D\u0438\u043A.desktop":
+      row: 2
+      col: 1
+    "/home/agent/Desktop/\u042D\u0442\u043E\u0442 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440.desktop":
+      row: 1
+      col: 1
+    "/home/agent/Desktop/\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438.desktop":
+      row: 2
+      col: 0
+    "/home/agent/Desktop/\u0414\u0438\u0441\u043F\u0435\u0442\u0447\u0435\u0440 \u0437\u0430\u0434\u0430\u0447.desktop":
+      row: 3
+      col: 0
+    "/home/agent/Desktop/\u0411\u0440\u0430\u0443\u0437\u0435\u0440 Chromium.desktop":
+      row: 0
+      col: 1
+    "4CCB-3222":
+      row: 1
+      col: 0
+      last_seen: 1793723332213205

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Kvorix: подключение ИИ-агента к приставке (Linux / macOS / Git Bash на Windows).
-#   bash connect.sh               — открыть туннель: localhost:2401 → SSH приставки
-#   bash connect.sh run 'команда' — выполнить команду на приставке (пользователь agent, sudo без пароля)
+# Kvorix: подключение ИИ-агента к мини-ПК (Linux / macOS / Git Bash на Windows).
+#   bash connect.sh               — открыть туннель: localhost:2401 → SSH мини-ПК
+#   bash connect.sh run 'команда' — выполнить команду на мини-ПК (пользователь agent, sudo без пароля)
 #   bash connect.sh stop          — закрыть туннель
 # Рядом должен лежать файл id_ed25519 (ключ из Настройки → Доступ ИИ).
 set -euo pipefail
@@ -21,7 +21,7 @@ alive() { ssh -p $PORT "${O[@]}" agent@127.0.0.1 true >/dev/null 2>&1; }
 open_tun() {
     alive && return 0
     kill_tun
-    # приставка публикует свежие коды сессий upterm в своей теме ntfy
+    # мини-ПК публикует свежие коды сессий upterm в своей теме ntfy
     codes=$( { curl -sf -m 15 "https://ntfy.sh/$TOPIC/json?poll=1&since=12h"; curl -sf -m 15 "https://ntfy.hostux.net/$TOPIC/json?poll=1&since=12h"; } \
              | grep -oE 'SESSION [A-Za-z0-9]+' | awk '{print $2}' | tac | awk '!s[$0]++' | head -6 || true)
     for c in $codes; do
@@ -29,7 +29,7 @@ open_tun() {
         sleep 1; alive && { echo "туннель открыт: ssh -p $PORT -i $KEY agent@127.0.0.1"; return 0; }
         kill_tun
     done
-    echo "не удалось подключиться: приставка выключена или в Настройки → Доступ ИИ доступ выключен" >&2; return 1
+    echo "не удалось подключиться: мини-ПК выключен или в Настройки → Доступ ИИ доступ выключен" >&2; return 1
 }
 
 case "${1:-open}" in

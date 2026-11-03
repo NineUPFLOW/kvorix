@@ -128,7 +128,7 @@ class DiskStudio(Gtk.Window):
         sc = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         sc.get_style_context().add_class("dk-card")
         top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.lbl_main_title = Gtk.Label(label="Основная память приставки", xalign=0)
+        self.lbl_main_title = Gtk.Label(label="Основная память мини-ПК", xalign=0)
         self.lbl_main_title.get_style_context().add_class("dk-h")
         top.pack_start(self.lbl_main_title, True, True, 0)
 

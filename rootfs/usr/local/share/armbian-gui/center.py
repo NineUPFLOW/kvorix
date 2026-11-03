@@ -212,7 +212,7 @@ def pointer_names():
 
 def _model():
     m = C.read("/proc/device-tree/model").strip("\x00 \n")
-    return m or "ТВ-приставка"
+    return m or "Мини-ПК Kvorix"
 
 
 MENU = [
@@ -668,7 +668,7 @@ class Center(Gtk.Window):
         c = p.card("Имя устройства", icon="network-server")
         c.add(ui.row("Имя в сети (hostname)", ui.button(
             "Изменить", self.change_hostname, "btn", "document-edit"),
-            sub="По этому имени приставка видна в локальной сети: %s" % C.out(["hostname"])))
+            sub="По этому имени мини-ПК виден в локальной сети: %s" % C.out(["hostname"])))
         c.add(ui.row("Часовой пояс", ui.button("Изменить", self.change_timezone, "ghost"),
                      sub="Сейчас: %s" % (C.read("/etc/timezone") or
                                          C.out(["timedatectl", "show", "-p", "Timezone", "--value"]))))
@@ -958,7 +958,7 @@ class Center(Gtk.Window):
 
         wifi_on = "enabled" in C.out(["nmcli", "radio", "wifi"])
         c.add(ui.row("Wi-Fi включён", ui.switch(wifi_on, self.toggle_wifi),
-                     sub="Выключать Wi-Fi стоит только если приставка подключена кабелем"))
+                     sub="Выключать Wi-Fi стоит только если мини-ПК подключён кабелем"))
 
         c = p.card("Доступные сети", icon="network-wireless")
         self.wifi_store = Gtk.ListStore(str, str, str, str)
@@ -1229,7 +1229,7 @@ class Center(Gtk.Window):
         threading.Thread(target=_scan_worker, daemon=True).start()
 
     def page_disks(self):
-        p = ui.Page("Хранилище", "Встроенная память приставки, подключённые накопители и свободное место")
+        p = ui.Page("Хранилище", "Встроенная память мини-ПК, подключённые накопители и свободное место")
         mount_names = {
             "/": "Основная память системы",
             "/boot": "Загрузочный раздел",
@@ -1554,11 +1554,11 @@ class Center(Gtk.Window):
             ("bluetooth", "Беспроводные устройства Bluetooth", "Наушники, колонки, пульты и мыши", True),
             ("cups", "Печать на принтерах (CUPS)", "Печать документов по USB и по домашней сети", True),
             ("front-panel", "Часы на корпусе (88:88)", "Светодиодный индикатор времени на передней панели", True),
-            ("ssh", "Удалённый доступ SSH", "Системное управление приставкой по сети (защищена)", False),
+            ("ssh", "Удалённый доступ SSH", "Системное управление мини-ПК по сети (защищена)", False),
             ("chrony", "Точное время через интернет", "Автоматическая настройка часов (защищена)", False),
         ]
         ck = p.card("Основные фоновые службы", icon="preferences-system-services",
-                    subtitle="Понятное управление главными возможностями приставки без риска сломать систему")
+                    subtitle="Понятное управление главными возможностями мини-ПК без риска сломать систему")
         for unit, title, desc, can_toggle in key_svcs:
             is_on = subprocess.run(["systemctl", "is-active", "-q", unit]).returncode == 0
             if can_toggle:
@@ -1665,7 +1665,7 @@ class Center(Gtk.Window):
         self.fill_services()
 
     def page_perf(self):
-        p = ui.Page("Быстродействие", "Насколько загружена приставка прямо сейчас: процессор, память, температура. Если притормаживает — смотрите «Что грузит систему»")
+        p = ui.Page("Быстродействие", "Насколько загружен мини-ПК прямо сейчас: процессор, память, температура. Если притормаживает — смотрите «Что грузит систему»")
         c = p.card("Процессор", icon="cpu")
         self.perf_cpu = ui.info_row("Загрузка", lambda: self.perf_cpu_value())
         c.add(self.perf_cpu)
@@ -1787,7 +1787,7 @@ class Center(Gtk.Window):
 
     def apt_upgrade(self):
         if not ui.dialog(self, "Обновить систему?",
-                         "Все установленные программы получат обновления. Приставка останется "
+                         "Все установленные программы получат обновления. Мини-ПК останется "
                          "включённой, перезагрузка обычно не нужна.", ok="Обновить", cancel=True):
             return
         log = C.sudo_bg("DEBIAN_FRONTEND=noninteractive apt-get -y upgrade", "/tmp/armbian-upgrade.log")
@@ -1984,7 +1984,7 @@ class Center(Gtk.Window):
 
     def page_ai(self):
         
-        p = ui.Page("Доступ ИИ", "Удалённое управление этим боксом ИИ-агентом (например, Claude)")
+        p = ui.Page("Доступ ИИ", "Удалённое управление этим мини-ПК ИИ-агентом (например, Claude)")
 
         def slots():
             r = subprocess.run(["systemctl", "is-active", "agent-slot@0", "agent-slot@1"],
@@ -1996,7 +1996,7 @@ class Center(Gtk.Window):
 
         def show():
             n = slots()
-            status.set_text("включён — бокс ждёт подключения" if n else "выключен — подключиться нельзя")
+            status.set_text("включён — мини-ПК ждёт подключения" if n else "выключен — подключиться нельзя")
             return False
 
         def toggle(on):
@@ -2172,7 +2172,7 @@ class Center(Gtk.Window):
         poll_hist()
 
         c2 = p.card("Как это работает", icon="dialog-information")
-        for t in ("Приставка сама соединяется с upterm.dev — роутер настраивать не нужно.",
+        for t in ("Мини-ПК сам соединяется с upterm.dev — роутер настраивать не нужно.",
                   "Войти может только агент с ключом; «Новый ключ» отключает старый.",
                   "Входы записываются в /var/lib/kvorix/access.log."):
             c2.add(ui._lbl("• " + t, None, wrap=True))
@@ -2504,9 +2504,9 @@ class Center(Gtk.Window):
 
     def page_power(self):
         p = ui.Page("Питание", "Перезагрузка, выключение и гашение экрана")
-        c = p.card("Питание приставки", icon="system-shutdown")
+        c = p.card("Питание мини-ПК", icon="system-shutdown")
         c.add(ui.row("Перезагрузить", ui.button("Перезагрузить", self.reboot, "btn", "system-reboot"),
-                     sub="Приставка выключится и включится сама, настройки сохранятся"))
+                     sub="Мини-ПК выключится и включится сама, настройки сохранятся"))
         c.add(ui.row("Выключить", ui.button("Выключить", self.poweroff, "danger", "system-shutdown"),
                      sub="Полное выключение. Включить — кнопкой на корпусе"))
         c.add(ui.row("Выйти из системы", ui.button("Выйти", self.logout, "ghost", "system-log-out")))
@@ -2522,12 +2522,12 @@ class Center(Gtk.Window):
         return p
 
     def reboot(self):
-        if ui.dialog(self, "Перезагрузить приставку?", "Работа будет прервана на ~1 минуту.",
+        if ui.dialog(self, "Перезагрузить мини-ПК?", "Работа будет прервана на ~1 минуту.",
                      ok="Перезагрузить", cancel=True):
             C.sudo(["systemctl", "reboot"])
 
     def poweroff(self):
-        if ui.dialog(self, "Выключить приставку?", "Экран погаснет. Включить — кнопкой на корпусе.",
+        if ui.dialog(self, "Выключить мини-ПК?", "Экран погаснет. Включить — кнопкой на корпусе.",
                      ok="Выключить", cancel=True):
             C.sudo(["systemctl", "poweroff"])
 

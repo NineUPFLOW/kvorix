@@ -1,7 +1,7 @@
 #!/bin/bash
-# Kvorix: собрать образ прошивки для SD/USB из работающей приставки — без личных данных.
+# Kvorix: собрать образ прошивки для SD/USB из работающего мини-ПК — без личных данных.
 #   kvorix-build-image [базовый образ ophub .img.gz] [рабочая папка]
-# Берёт разметку и загрузочные скрипты SD из базового образа ophub, систему — с этой приставки,
+# Берёт разметку и загрузочные скрипты SD из базового образа ophub, систему — с этого мини-ПК,
 # затем вычищает всё личное (Wi-Fi, ключи, Tailscale, браузер, журналы, бэкапы, доступ ИИ).
 set -euo pipefail
 BASE=${1:-/home/agent/img/ar.img.gz}
@@ -22,7 +22,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# что не берём с приставки (личное, временное, чужие образы)
+# что не берём с мини-ПК (личное, временное, чужие образы)
 EXCL=(--exclude=/proc/ --exclude=/sys/ --exclude=/dev/ --exclude=/run/ --exclude=/tmp/ --exclude=/mnt/
       --exclude=/media/ --exclude=/boot/ --exclude=/lost+found --exclude=/var/tmp/ --exclude=/swapfile
       --exclude=/home/agent/img/ --exclude=/srv/share/ --exclude=/root/claude-backup-20261101/
@@ -59,11 +59,11 @@ ROOT_UUID=$(blkid -s UUID -o value "${LOOP}p2")
 BOOT_UUID=$(blkid -s UUID -o value "${LOOP}p1")
 mkdir -p "$R"; mount "${LOOP}p2" "$R"; mkdir -p "$R/boot"; mount "${LOOP}p1" "$R/boot"
 
-# 3. система с приставки
+# 3. система с мини-ПК
 rsync -aHAX --numeric-ids "${EXCL[@]}" / "$R/"
 mkdir -p "$R"/{proc,sys,dev,run,tmp,mnt,media,var/tmp,var/log,var/cache/apt,var/lib/apt/lists,var/backups,srv/share,boot}
 chmod 1777 "$R/tmp" "$R/var/tmp"
-# загрузочный раздел: ядро, dtb, initrd и заставка с приставки, скрипты загрузки с SD — из ophub
+# загрузочный раздел: ядро, dtb, initrd и заставка с мини-ПК, скрипты загрузки с SD — из ophub
 rsync -rt --modify-window=2 --exclude=uEnv.txt --exclude='*.bak*' --exclude=extlinux/ /boot/ "$R/boot/"
 sed -E "s#root=UUID=[0-9a-f-]+#root=UUID=${ROOT_UUID}#" /boot/uEnv.txt > "$R/boot/uEnv.txt"
 cat > "$R/etc/fstab" <<EOF
@@ -91,7 +91,7 @@ find "$C" -xdev \( -name '*.bak' -o -name '*.bak-*' -o -name '*.bak_*' -o -name 
      -path "$C/etc/*" -delete 2>/dev/null || true
 : > "$C/etc/machine-id"; rm -f "$C/var/lib/dbus/machine-id"
 mkdir -p "$C/var/lib/kvorix"
-# доступ ИИ — выключен, у каждой приставки будут свои темы и токены
+# доступ ИИ — выключен, у каждого мини-ПК будут свои темы и токены
 for u in agent-slot@0 agent-slot@1 agent-cmd kvorix-autoreport.timer; do
     rm -f "$C"/etc/systemd/system/*.wants/"$u".service "$C"/etc/systemd/system/*.wants/"$u"
 done
@@ -120,7 +120,7 @@ ln -sf /usr/lib/systemd/system/armbian-resize-filesystem.service "$C/etc/systemd
 touch "$C/etc/kvorix/.firstboot"
 sync
 
-# 5. проверка: в образе не осталось секретов этой приставки
+# 5. проверка: в образе не осталось секретов этого мини-ПК
 LEAK=0
 for f in /etc/kvorix/ai.conf /etc/kvorix/novnc.token /etc/kvorix/vnc.pass.txt; do
     [ -s "$f" ] || continue

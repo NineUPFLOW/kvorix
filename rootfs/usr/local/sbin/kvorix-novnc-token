@@ -23,4 +23,4 @@ nginx -t -c /etc/nginx/nginx.conf 2>/dev/null || true
 mv /etc/kvorix/novnc-nginx.inc.new /etc/kvorix/novnc-nginx.inc
 mv /etc/kvorix/novnc.token.new /etc/kvorix/novnc.token
 nginx -t && systemctl reload nginx
-echo "новая ссылка: http://<IP бокса>:6080/$T/vnc.html"
+echo "новая ссылка: http://<IP мини-ПК>:6080/$T/vnc.html"

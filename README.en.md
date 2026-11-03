@@ -4,7 +4,7 @@
 
 [Русский](README.md) · **English** · [中文](README.zh.md)
 
-**A fast desktop computer made from the Tanix TX3 TV box (Amlogic S905X3)**
+**Kvorix mini-PC — a fast home computer made from the Tanix TX3 TV box (Amlogic S905X3)**
 
 Armbian (Debian 13 "trixie") · ophub 6.12 kernel · XFCE with a Windows 11-style shell · custom Settings and icons
 

@@ -4,7 +4,7 @@
 
 [Русский](README.md) · [English](README.en.md) · **中文**
 
-**把 Tanix TX3 电视盒（Amlogic S905X3）变成一台流畅的桌面电脑**
+**Kvorix 迷你电脑 —— 由 Tanix TX3 电视盒（Amlogic S905X3）改造的流畅家用电脑**
 
 Armbian（Debian 13 "trixie"）· ophub 6.12 内核 · Windows 11 风格的 XFCE 桌面 · 自有的设置程序和图标
 

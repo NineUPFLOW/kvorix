@@ -521,7 +521,7 @@ def page_rows(page):
             ("r", "Вернуть встроенные", "panel-wallpaper --reset", C["teal"]),
             ("r", "Перезапустить панель", "sudo systemctl restart tty-console", C["teal"]),
             ("r", "Выключить панель", "sudo systemctl disable --now tty-console", C["dim"]),
-            ("h", "Приставка"),
+            ("h", "Мини-ПК"),
             ("r", "Выключить", "sudo poweroff", C["orange"]),
             ("r", "Перезагрузить", "sudo reboot", C["orange"]),
             ("r", "Состояние", "health", C["teal"]),

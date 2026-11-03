@@ -1,18 +1,24 @@
 #!/bin/bash
-# Kvorix: первый запуск новой приставки — свои ключи, пароли и токены у каждой копии прошивки.
+# Kvorix: первый запуск новой мини-ПК — свои ключи, пароли и токены у каждой копии прошивки.
 set -u
 FLAG=/etc/kvorix/.firstboot
 [ -e "$FLAG" ] || exit 0
 LOG="logger -t kvorix-firstboot"
 rnd() { python3 -c "import secrets,sys; print(secrets.token_hex(int(sys.argv[1])))" "$1"; }
 
-# ключи SSH приставки
+# ключи SSH мини-ПК
 rm -f /etc/ssh/ssh_host_*; ssh-keygen -A >/dev/null 2>&1 && $LOG "ключи SSH созданы"
 
 # доступ ИИ: свои темы ntfy и токен (сам доступ выключен, включается в Настройки → Доступ ИИ)
 umask 077
-printf '# Темы ntfy доступа ИИ этой приставки (созданы при первом запуске)\nTOPIC=kvorix-%s\nCMD_TOPIC=kvorix-c-%s\nOUT_TOPIC=kvorix-o-%s\nTOKEN=%s\n' \
+printf '# Темы ntfy доступа ИИ этого мини-ПК (созданы при первом запуске)\nTOPIC=kvorix-%s\nCMD_TOPIC=kvorix-c-%s\nOUT_TOPIC=kvorix-o-%s\nTOKEN=%s\n' \
     "$(rnd 8)" "$(rnd 8)" "$(rnd 8)" "$(rnd 16)" > /etc/kvorix/ai.conf
+
+# доступ ИИ: ключ самопроверки слотов upterm (без него слоты пересоздаются каждые 10 минут)
+mkdir -p /etc/agent-access /var/lib/kvorix; touch /etc/agent-access/guests_authorized_keys
+S=/etc/agent-access/selfcheck_ed25519
+[ -f "$S" ] || ssh-keygen -q -t ed25519 -N "" -C selfcheck -f "$S"
+grep -qxF "$(cat "$S.pub")" /etc/agent-access/guests_authorized_keys || cat "$S.pub" >> /etc/agent-access/guests_authorized_keys
 
 # пароль показа экрана (VNC) — виден в Настройки → Устройства → «Экран на телефоне»
 P=$(rnd 4)
