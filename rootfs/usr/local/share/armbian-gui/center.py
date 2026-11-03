@@ -1036,10 +1036,6 @@ class Center(Gtk.Window):
         pwd = ui.ask_text(self, "Подключение к Wi-Fi", "Пароль для сети «%s»:" % ssid, password=True)
         if pwd is None:
             return
-        try:
-            C.run(["sudo", "-n", "/usr/local/bin/rsaarm-wifi-sync", ssid, pwd], timeout=12)
-        except Exception:
-            pass
         code, o = C.run(["nmcli", "device", "wifi", "connect", ssid, "password", pwd], timeout=45)
         if code == 0:
             C.notify("Сеть", "Подключено к %s" % ssid)

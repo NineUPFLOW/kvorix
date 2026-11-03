@@ -93,8 +93,7 @@ def main():
     print()
     media = [f"DLNA {ACC}:8200{R}", f"Navidrome {ACC}:4533{R}",
              f"AirPlay {ACC}Armbian TV{R}", f"Samba {ACC}\\\\{ip}\\share{R}"]
-    cmds = [f"{ACC}health{R}", f"{ACC}music-play{R}", f"{ACC}bt-test{R}",
-            f"{ACC}dashboard-on{R}"]
+    cmds = [f"{ACC}health{R}", f"{ACC}music-play{R}", f"{ACC}bt-test{R}"]
     for label, items in (("медиа", media), ("команды", cmds)):
         while items:
             plain_len = 10 + len(" · ".join(__import__("re").sub(r"\033\[[0-9;]*m", "", x) for x in items))

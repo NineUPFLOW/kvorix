@@ -1,6 +1,0 @@
-#!/bin/bash
-sudo systemctl stop tv-panel 2>/dev/null
-sudo systemctl start tty-console 2>/dev/null
-sleep 2
-sudo chvt 2 2>/dev/null
-echo "Консоль включена."

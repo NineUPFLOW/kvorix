@@ -41,7 +41,7 @@
 | `bt-agent.service`, `bt-beacon.service` | сопряжение Bluetooth без подтверждения, видимость адаптера |
 | `nebo-tune.service` | governor `ondemand` для всех ядер при загрузке |
 | `tty-console.service` | графическая консоль на tty2 (Xorg + urxvt) |
-| `agent-slot@.service`, `agent-cmd.service`, `agent-access.service`, `kvorix-autoreport.timer` | Доступ ИИ — выключены, управляются `ai-access on` / `off` |
+| `agent-slot@.service`, `agent-cmd.service`, `kvorix-autoreport.timer` | Доступ ИИ — выключены, управляются `ai-access on` / `off` |
 
 ## Важные команды (`/usr/local/sbin`, `/usr/local/bin`)
 
