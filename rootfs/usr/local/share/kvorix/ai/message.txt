@@ -5,7 +5,7 @@ K
 cat>kv<<'S'
 #!/bin/bash
 O="-i $HOME/.kvorix/key -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -oBatchMode=yes -oLogLevel=ERROR -oConnectTimeout=15"
-for c in $(for h in ntfy.sh ntfy.hostux.net;do curl -s -m10 "https://$h/@TOPIC@/json?poll=1&since=12h";done|grep -o 'SESSION [A-Za-z0-9]*'|cut -d' ' -f2|tac|awk '!s[$0]++');do
+for c in $(for h in ntfy.sh ntfy.hostux.net;do curl -s -m10 "https://$h/@TOPIC@/json?poll=1&since=12h";done|grep -o 'SESSION [A-Za-z0-9]*'|cut -d' ' -f2|awk '{a[NR]=$0}END{for(i=NR;i>0;i--)if(!s[a[i]]++)print a[i]}');do
 ssh $O -oProxyCommand="ssh $O -W 127.0.0.1:22 $c:uptermd.upterm.dev@uptermd.upterm.dev" agent@127.0.0.1 "$@";r=$?;[ $r -ne 255 ]&&exit $r;done;exit 255
 S
 chmod 600 key;chmod +x kv;./kv hostname
