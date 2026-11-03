@@ -1,0 +1,18 @@
+Подключись к моему мини-ПК Kvorix (Linux, Debian 13) и помоги мне с ним. Выполни это в bash:
+
+mkdir -p ~/.kvorix && cd ~/.kvorix && cat > key <<'KEY'
+@KEY@
+KEY
+cat > kv <<'S'
+#!/bin/bash
+O="-i $HOME/.kvorix/key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR"
+ssh -p 2401 $O agent@127.0.0.1 true 2>/dev/null || for c in $(curl -s "https://ntfy.sh/@TOPIC@/json?poll=1&since=12h" | grep -o 'SESSION [A-Za-z0-9]*' | cut -d' ' -f2 | tac); do
+  ssh -fN -o ExitOnForwardFailure=yes -L 2401:127.0.0.1:22 $O $c:uptermd.upterm.dev@uptermd.upterm.dev && ssh -p 2401 $O agent@127.0.0.1 true 2>/dev/null && break
+done
+exec ssh -p 2401 $O agent@127.0.0.1 "$@"
+S
+chmod 600 key; chmod +x kv; ~/.kvorix/kv hostname
+
+Дальше любая команда: ~/.kvorix/kv 'команда' (пользователь agent, sudo без пароля).
+Файл: scp -P 2401 -i ~/.kvorix/key файл agent@127.0.0.1:/tmp/
+Правила: перед изменением делай копию файла; без моего согласия не перезагружай, не трогай загрузчик и сеть, ничего не удаляй; отвечай коротко.

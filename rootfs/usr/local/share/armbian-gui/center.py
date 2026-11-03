@@ -275,6 +275,7 @@ EXTRA_CSS = """
 .nav image { color: alpha(@text, 0.75); }
 .nav row:selected image { color: @accent; }
 .card-head image { color: @accent; }
+.ai-step { min-width: 28px; min-height: 28px; border-radius: 14px; background-color: @accent; color: #ffffff; font-weight: 700; }
 .tile-ic { min-width: 36px; min-height: 36px; border-radius: 10px; color: #ffffff; margin-bottom: 4px; }
 .tile-ic-network { background-color: #2f7cf6; }
 .tile-ic-bluetooth { background-color: #5b6cf0; }
@@ -2009,81 +2010,92 @@ class Center(Gtk.Window):
         c.add(ui.row("Сейчас", status))
         show()
 
-        # подключение агента: три шага по порядку; ключ и QR — под «Ещё»
+        # подключение агента: одно сообщение с ключом внутри — скопировать или отсканировать и отдать агенту
         ck = p.card("Подключить ИИ-агента", icon="network-server")
         AI = "/usr/local/share/kvorix/ai"
-        KIT = os.path.expanduser("~/Загрузки/kvorix-ai")
 
         def ai_out(*a):
             return C.out(["sudo", "-n", "/usr/local/sbin/ai-access"] + list(a))
 
-        def tpl(template):
+        def message():
             try:
-                return open(AI + "/" + template, encoding="utf-8").read().replace("@TOPIC@", ai_out("topic").strip())
+                t = open(AI + "/message.txt", encoding="utf-8").read()
             except OSError:
                 return ""
+            return t.replace("@KEY@", ai_out("key").strip()).replace("@TOPIC@", ai_out("topic").strip())
 
-        def qr_img(text, path):
-            subprocess.run(["qrencode", "-s", "3", "-m", "1", "-o", path, text], capture_output=True)
-            return Gtk.Image.new_from_file(path)
+        def copy_msg():
+            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(message(), -1)
+            C.notify("Доступ ИИ", "Сообщение скопировано — вставьте его в чат с ИИ-агентом")
 
-        def copy(text, what):
-            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
-            C.notify("Доступ ИИ", what + " скопирован в буфер обмена")
+        def step(n, title, sub, widget=None):
+            row_ = Gtk.Box(spacing=14)
+            row_.set_margin_top(4)
+            row_.set_margin_bottom(4)
+            badge = Gtk.Label(label=str(n))
+            badge.get_style_context().add_class("ai-step")
+            badge.set_valign(Gtk.Align.CENTER)
+            row_.pack_start(badge, False, False, 0)
+            tx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            tx.set_valign(Gtk.Align.CENTER)
+            tx.pack_start(ui._lbl(title, "tile-title"), False, False, 0)
+            if sub:
+                tx.pack_start(ui._lbl(sub, "muted", wrap=True), False, False, 0)
+            row_.pack_start(tx, True, True, 0)
+            if widget:
+                widget.set_valign(Gtk.Align.CENTER)
+                row_.pack_end(widget, False, False, 0)
+            return row_
 
-        def save_kit():
-            os.makedirs(KIT, exist_ok=True)
-            for name, text, mode in (("id_ed25519", ai_out("key"), 0o600), ("connect.sh", tpl("connect.sh"), 0o755),
-                                     ("ДЛЯ-ИИ.txt", tpl("prompt.txt"), 0o644)):
-                path = os.path.join(KIT, name)
-                with open(path, "w", encoding="utf-8", newline="\n") as f:
-                    f.write(text)
-                os.chmod(path, mode)
-            _spawn(["thunar", KIT])
+        ck.add(ui._lbl("Агенту нужно только одно сообщение: в нём ключ и команды для входа. Папки и файлы не нужны.",
+                       "muted", wrap=True))
+        ck.add(step(1, "Разрешите подключение", "Переключатель «Разрешить ИИ-агентам подключаться» выше"))
+        cp = ui.button("Скопировать сообщение", copy_msg, "btn", "edit-copy")
+        cp.get_style_context().add_class("suggested-action")
+        ck.add(step(2, "Скопируйте сообщение или отсканируйте QR", "QR откройте только когда рядом никого — в нём ключ", cp))
+        ck.add(step(3, "Вставьте его в чат с ИИ-агентом", "Агент сам создаст у себя ключ, подключится и ответит"))
 
-        ck.add(ui.row("1. Сохраните набор для агента", ui.button("Сохранить", save_kit, "btn", "document-save"),
-                      sub="Ключ и скрипт подключения появятся в папке «Загрузки → kvorix-ai»"))
-        ck.add(ui.row("2. Перенесите папку kvorix-ai на компьютер, где работает ИИ",
-                      sub="Флешкой, по сети или через облако — эта папка и есть пропуск для агента"))
-        ck.add(ui.row("3. Отправьте агенту это сообщение",
-                      ui.button("Скопировать текст", lambda: copy(tpl("prompt.txt"), "Текст"), "ghost", "edit-copy"),
-                      sub="Вставьте его в чат с ИИ — он сам подключится"))
-        msg = ui._lbl(tpl("prompt.txt").strip(), "muted", wrap=True)
-        msg.set_selectable(True)
-        msg.set_xalign(0)
-        mb = Gtk.Box()
-        mb.get_style_context().add_class("tile")
-        mb.pack_start(msg, True, True, 0)
-        ck.add(mb)
+        qr_tile = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        qr_tile.get_style_context().add_class("tile")
+        qr_tile.set_halign(Gtk.Align.START)
+        qr_slot = Gtk.Box()
+        qr_tile.pack_start(qr_slot, False, False, 0)
+        qr_tile.set_no_show_all(True)
 
-        more = Gtk.Expander(label="Ещё: ключ отдельно, QR, замена ключа")
-        mbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        mbox.set_margin_top(6)
-        key_qr = Gtk.Box()
+        def toggle_qr():
+            if qr_tile.get_visible():
+                qr_tile.hide()
+                qr_btn.set_label("Показать QR")
+                return
+            for ch in qr_slot.get_children():
+                qr_slot.remove(ch)
+            png = "/tmp/kvorix-ai-msg.png"
+            subprocess.run(["qrencode", "-s", "3", "-m", "2", "-l", "L", "-o", png, message()], capture_output=True)
+            qr_slot.pack_start(Gtk.Image.new_from_file(png), False, False, 0)
+            qr_slot.show_all()
+            qr_tile.show()
+            qr_btn.set_label("Скрыть QR")
+            os.remove(png)
 
-        def show_key_qr():
-            for ch in key_qr.get_children():
-                key_qr.remove(ch)
-            key_qr.pack_start(qr_img(ai_out("key"), "/tmp/kvorix-ai-key.png"), False, False, 0)
-            key_qr.show_all()
+        qr_btn = ui.button("Показать QR", toggle_qr, "ghost", "view-reveal-symbolic")
+        bb = Gtk.Box(spacing=8)
+        bb.set_margin_start(42)
+        bb.pack_start(qr_btn, False, False, 0)
 
         def new_key():
-            if not ui.dialog(self, "Заменить ключ?", "Старый ключ перестанет работать, подключённые агенты отключатся. "
-                             "Потом сохраните набор заново.", ok="Заменить", cancel="Отмена"):
+            if not ui.dialog(self, "Заменить ключ?", "Старое сообщение перестанет работать, подключённые агенты "
+                             "отключатся. Потом скопируйте сообщение заново.", ok="Заменить", cancel="Отмена"):
                 return
             ai_out("newkey")
-            C.notify("Доступ ИИ", "Ключ заменён — сохраните набор заново")
-            if key_qr.get_children():
-                show_key_qr()
+            if qr_tile.get_visible():
+                toggle_qr(); toggle_qr()
+            C.notify("Доступ ИИ", "Ключ заменён — скопируйте сообщение заново")
 
-        kb = Gtk.Box(spacing=6)
-        kb.pack_start(ui.button("Показать ключ как QR", show_key_qr, "ghost", "view-reveal-symbolic"), False, False, 0)
-        kb.pack_start(ui.button("Скопировать ключ", lambda: copy(ai_out("key"), "Ключ"), "ghost", "edit-copy"), False, False, 0)
-        kb.pack_start(ui.button("Заменить ключ", new_key, "ghost", "view-refresh"), False, False, 0)
-        mbox.pack_start(kb, False, False, 0)
-        mbox.pack_start(key_qr, False, False, 0)
-        more.add(mbox)
-        ck.add(more)
+        bb.pack_start(ui.button("Заменить ключ", new_key, "ghost", "view-refresh"), False, False, 0)
+        ck.add(bb)
+        ck.add(qr_tile)
+        ck.add(ui._lbl("Войти может только тот, у кого есть это сообщение. «Заменить ключ» — и старое больше не пускает.",
+                       "muted", wrap=True))
 
         cw = p.card("Кто подключён прямо сейчас", icon="system-users")
         head = ui._lbl("", "dash-big")

@@ -3,8 +3,8 @@ UP=/usr/local/bin/upterm
 KEYS=/etc/agent-access/guests_authorized_keys
 LOG=/var/lib/kvorix/access.log
 case "$1" in
-  on)  systemctl enable --now agent-slot@0 agent-slot@1 agent-cmd ;;
-  off) systemctl disable --now agent-slot@0 agent-slot@1 agent-cmd ;;
+  on)  systemctl enable --now agent-slot@0 agent-slot@1 ;;
+  off) systemctl disable --now agent-slot@0 agent-slot@1 agent-cmd kvorix-autoreport.timer 2>/dev/null ;;
   who)
     declare -A NAME
     while read -r _ fp rest; do
