@@ -165,6 +165,7 @@ def draw_menu_border(wid, cr):
 
 SKIP_DESKTOP = {
     # дубли и служебное: «Файлы» вместо Thunar, консольные htop/mc, сервер VNC, picom, выход есть в меню
+    "onboard.desktop", "onboard-settings.desktop",
     "thunar.desktop", "htop.desktop", "mc.desktop", "mcedit.desktop", "picom.desktop",
     "x11vnc.desktop", "xfce4-run.desktop", "xfce4-session-logout.desktop",
     "xfce-settings-manager.desktop", "xfce-wm-settings.desktop",

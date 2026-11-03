@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=On-Screen Keyboard
+Name[ru]=Экранная клавиатура
+Comment[ru]=Ввод мышью или пультом (Win+Ctrl+O)
+Exec=kvorix-osk
+Icon=input-keyboard
+Categories=Utility;Accessibility;
+Keywords=keyboard;osk;onboard;клавиатура;экранная;
+StartupNotify=false

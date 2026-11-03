@@ -1,0 +1,8 @@
+#!/bin/bash
+# Экранная клавиатура (Onboard): показать / скрыть. Win+Ctrl+O, как в Windows.
+export DISPLAY=${DISPLAY:-:0}
+if pgrep -u "$(id -u)" -x onboard >/dev/null; then
+    dbus-send --type=method_call --dest=org.onboard.Onboard /org/onboard/Onboard/Keyboard \
+        org.onboard.Onboard.Keyboard.ToggleVisible 2>/dev/null && exit 0
+fi
+setsid -f onboard >/dev/null 2>&1 </dev/null

@@ -24,6 +24,7 @@ screen sharing to a phone and DPI bypass — all usable without a terminal.
 
 - **Windows 11-style shell:** centered taskbar, Start menu with search and pinned apps,
   Win+E / Win+I / Win+R / Win+P / Win+V / Ctrl+Shift+Esc, window snapping.
+- **On-screen keyboard** (Win+Ctrl+O) for mouse and remote control.
 - **One icon style everywhere**; newly installed apps get a matching icon automatically.
 - **Custom Settings app** laid out like Windows 11, with search across every option.
 - **Display without HPD:** the TX3 cannot detect HDMI hot-plug, so the monitor is read via EDID over DDC;

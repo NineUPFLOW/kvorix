@@ -18,6 +18,7 @@ Kvorix — © 2026 NineUPFLOW, GPL-3.0 (файл [LICENSE](LICENSE)): всё в 
 | x11vnc | https://github.com/LibVNC/x11vnc | GPL-2.0 |
 | upterm (Доступ ИИ) | https://github.com/owenthereal/upterm | Apache-2.0 |
 | Tailscale | https://tailscale.com | BSD-3-Clause (клиент) |
+| Onboard (экранная клавиатура) | https://launchpad.net/onboard | GPL-3.0 |
 | Chromium | https://www.chromium.org | BSD-3-Clause и др. |
 | Шрифт Inter | https://rsms.me/inter | OFL-1.1 |
 

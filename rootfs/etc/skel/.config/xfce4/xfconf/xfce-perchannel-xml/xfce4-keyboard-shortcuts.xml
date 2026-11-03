@@ -95,6 +95,7 @@
       <property name="XF86HomePage" type="string" value="rsaarm-browser"/>
       <property name="XF86Tools" type="string" value="armbian-center"/>
       <property name="&lt;Super&gt;Tab" type="string" value="kvorix-taskview"/>
+      <property name="&lt;Primary&gt;&lt;Super&gt;o" type="string" value="kvorix-osk"/>
     </property>
   </property>
   <property name="xfwm4" type="empty">

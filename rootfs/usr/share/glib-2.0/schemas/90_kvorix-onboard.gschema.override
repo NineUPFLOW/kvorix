@@ -1,0 +1,16 @@
+# Kvorix: экранная клавиатура Onboard в стиле системы (тёмная, внизу экрана, шрифт Inter)
+[org.onboard]
+theme='/usr/share/onboard/themes/Droid.theme'
+layout='/usr/share/onboard/layouts/Compact.onboard'
+show-status-icon=false
+start-minimized=false
+
+[org.onboard.window]
+docking-enabled=true
+docking-edge='bottom'
+docking-shrink-workarea=false
+force-to-top=true
+
+[org.onboard.theme-settings]
+key-label-font='Inter'
+roundrect-radius=30.0

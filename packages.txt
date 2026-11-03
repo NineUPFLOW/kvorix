@@ -508,7 +508,6 @@ rng-tools-debian
 rpcbind
 rpcsvc-proto
 rsync
-rsyslog
 rtkit
 runit-helper
 rxvt-unicode
@@ -527,7 +526,6 @@ smartmontools
 smbclient
 sqv
 sshpass
-strace
 stress
 sudo
 synaptic
@@ -608,3 +606,4 @@ zlib1g
 zram-tools
 zsh
 zsh-common
+onboard

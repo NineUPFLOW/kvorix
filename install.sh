@@ -15,9 +15,11 @@ if [ "${1:-}" != "--no-packages" ]; then
     step "Пакеты"
     apt-get update
     # tailscale ставится из своего репозитория, если он подключён
-    PKGS=$(grep -v '^#' packages.txt | grep -vx tailscale)
+    # onboard (экранная клавиатура) — из trixie-backports
+    PKGS=$(grep -v '^#' packages.txt | grep -vxE 'tailscale|onboard')
     # shellcheck disable=SC2086
     DEBIAN_FRONTEND=noninteractive apt-get install -y $PKGS
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -t trixie-backports onboard || echo "onboard пропущен: подключите trixie-backports"
     apt-cache policy tailscale 2>/dev/null | grep -q Candidate: && DEBIAN_FRONTEND=noninteractive apt-get install -y tailscale || \
         echo "tailscale пропущен: подключите репозиторий https://tailscale.com/download/linux/debian-trixie"
 fi
@@ -53,6 +55,7 @@ touch /etc/kvorix/.firstboot
 /usr/local/sbin/kvorix-firstboot
 
 step "Значки и заставка"
+glib-compile-schemas /usr/share/glib-2.0/schemas/
 /usr/local/sbin/kvorix-make-icons
 plymouth-set-default-theme kvorix && update-initramfs -u
 
